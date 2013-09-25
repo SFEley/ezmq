@@ -1,5 +1,6 @@
-require "ezmq/version"
+require 'ffi'
 
-module Ezmq
-  # Your code goes here...
+module EZmq
+  extend FFI::Library
+  ffi_lib 'libzmq'
 end
