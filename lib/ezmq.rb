@@ -1,6 +1,5 @@
-require 'ffi'
+require 'ezmq/api'
+require 'ezmq/context'
 
 module EZmq
-  extend FFI::Library
-  ffi_lib 'libzmq'
 end
