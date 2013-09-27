@@ -11,5 +11,10 @@ module EZmq
     ffi_lib 'zmq'
 
     attach_function 'zmq_ctx_new', [], :pointer
+    attach_function 'zmq_ctx_get', [:pointer, :int], :int
+    attach_function 'zmq_ctx_set', [:pointer, :int, :int], :int
+    attach_function 'zmq_ctx_destroy', [:pointer], :int
+
+    attach_function 'zmq_strerror', [:int], :string
   end
 end
