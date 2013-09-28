@@ -10,34 +10,41 @@ module EZmq
     # that don't appear in the standard system errors. Don't ask me why it
     # has this name.
     HAUSNUMERO = 156384712
-    private_constant :HAUSNUMERO
 
     # Lookup hash for all known 0mq errors by number. Errors that map to
     # standard system errors (which is most of them) are referenced by
     # the standard error code AND 0mq's custom number.
-    def self.errnos
-      @errnos ||= {}
+    ERRNOS = {}
+    private_constant :HAUSNUMERO, :ERRNOS
+
+    # Creates an exception corresponding to a 0mq error number.
+    # @return [ZMQError, nil] An appropriate subclass of ZMQError, or nil for an invalid number.
+    def self.by_errno(num)
+      ERRNOS[num]
     end
+
 
     # Base exception class for all errors coming from the 0mq library.
     # These are distinguished entirely by their numeric error code, and
     # message strings are determined by 0mq as well.
     class ZMQError < StandardError
-      def self.errno
-        0
-      end
+      Errno = nil
 
+      # The numeric error code returned by 0mq functions.
       def errno
-        self.class.errno
+        self.class::Errno
       end
 
       # @private
       def self.spawn(name, offset)
-        Errors.const_set name, Class.new(self) do
-          def self.errno
-            HAUSNUMERO + offset
-          end
-        end
+        zmq_errno = HAUSNUMERO + offset
+        the_errno = ::Errno.const_defined?(name) ? ::Errno.const_get(name)::Errno : zmq_errno
+        the_message = API::zmq_strerror(the_errno)
+        spawned = Class.new(self)
+        spawned.const_set :Errno, the_errno
+        Errors.const_set name, spawned
+        ERRNOS[zmq_errno] = spawned
+        ERRNOS[the_errno] = spawned  # Redundant if they're the same. No biggie.
       end
     end
 

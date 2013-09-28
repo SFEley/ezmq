@@ -18,7 +18,7 @@ module EZmq
             let(:class_basename) {described_class.to_s[/.*::(.*)$/, 1]}
 
             it "is a ZeroMQ error" do
-              expect(described_class).to be_an(Errors::ZMQError)
+              expect(subject).to be_a_kind_of(Errors::ZMQError)
             end
 
             it "knows its errno" do
@@ -26,7 +26,7 @@ module EZmq
             end
 
             it "responds to a ZMQ-specific errno" do
-              expect(Errors.errnos.any? {|k, v| k > HAUSNUMERO and v == described_class}).to be_true
+              expect(ERRNOS.any? {|k, v| k > HAUSNUMERO and v == described_class}).to be_true
             end
 
             it "can create an exception by errno" do
@@ -38,7 +38,7 @@ module EZmq
             end
 
             it "gets its description from ZeroMQ" do
-              expect(subject.message).to eq API::strerror(subject.errno)
+              expect(subject.message).to eq API::zmq_strerror(subject.errno)
             end
 
             it "has a real description" do
@@ -68,9 +68,6 @@ module EZmq
         end
       end
 
-      it "knows its codes" do
-        expect(described_class.errnos).not_to be_empty
-      end
     end
   end
 end
