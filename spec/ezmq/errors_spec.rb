@@ -65,7 +65,12 @@ module EZmq
       end
 
       it "can retrieve errors by their number" do
+        expect(Errors.by_errno(::Errno::EADDRNOTAVAIL::Errno)).to eq Errors::EADDRNOTAVAIL
+      end
 
+      it "throws an Unknown exception if the number can't be found" do
+        expect {Errors.by_errno(HAUSNUMERO - 10)}.to raise_error(Errors::UnknownError)
+      end
 
     end
   end

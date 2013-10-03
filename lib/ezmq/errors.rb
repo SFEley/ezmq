@@ -28,7 +28,7 @@ module EZmq
     # message strings are determined by 0mq as well.
     class ZMQError < StandardError
       Errno = nil
-      Message = 'Unknown ZeroMQ error'
+      Message = 'ZeroMQ error'
 
       # The numeric error code returned by 0mq functions.
       def errno
