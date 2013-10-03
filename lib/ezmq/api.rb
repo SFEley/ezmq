@@ -16,5 +16,21 @@ module EZmq
     attach_function 'zmq_ctx_destroy', [:pointer], :int
 
     attach_function 'zmq_strerror', [:int], :string
+
+    # Wraps 0mq's C-based calling semantics (return a 0 on success, -1 and
+    # get the errno on failures) in a much more Rubyish "give me what I
+    # asked for or throw an exception" style.
+    # @param func [Symbol] Name of the 0mq API function to call
+    # @param *args [Array] Arguments passed directly to the 0mq function
+    def self.invoke(name, *args)
+      result = self.send name, *args
+      if result == -1
+        raise Errors.by_errno(FFI.errno)
+      else
+        result
+      end
+    end
+
+
   end
 end

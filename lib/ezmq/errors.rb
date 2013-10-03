@@ -17,37 +17,46 @@ module EZmq
     ERRNOS = {}
     private_constant :HAUSNUMERO, :ERRNOS
 
-    # Creates an exception corresponding to a 0mq error number.
-    # @return [ZMQError, nil] An appropriate subclass of ZMQError, or nil for an invalid number.
+    # Returns the exception class corresponding to a 0mq error number.
+    # @return [ZMQError, nil] An appropriate subclass of ZMQError, or nil for an invalid error code.
     def self.by_errno(num)
       ERRNOS[num]
     end
-
 
     # Base exception class for all errors coming from the 0mq library.
     # These are distinguished entirely by their numeric error code, and
     # message strings are determined by 0mq as well.
     class ZMQError < StandardError
       Errno = nil
+      Message = 'Unknown ZeroMQ error'
 
       # The numeric error code returned by 0mq functions.
       def errno
         self.class::Errno
       end
 
+      def message
+        self.class::Message
+      end
+
       # @private
-      def self.spawn(name, offset)
-        zmq_errno = HAUSNUMERO + offset
-        the_errno = ::Errno.const_defined?(name) ? ::Errno.const_get(name)::Errno : zmq_errno
-        the_message = API::zmq_strerror(the_errno)
+      # Convenience method to auto-define all the exception classes for all
+      # known error codes in `include/zmq.h`.
+      def self.spawn(name, offset=0)
+        the_errno = ::Errno.const_defined?(name) ? ::Errno.const_get(name)::Errno : HAUSNUMERO + offset
         spawned = Class.new(self)
         spawned.const_set :Errno, the_errno
+        spawned.const_set :Message, API::zmq_strerror(the_errno)
         Errors.const_set name, spawned
-        ERRNOS[zmq_errno] = spawned
-        ERRNOS[the_errno] = spawned  # Redundant if they're the same. No biggie.
+        ERRNOS[the_errno] = spawned
+        if offset > 0 and the_errno < HAUSNUMERO
+          ERRNOS[HAUSNUMERO + offset] = spawned
+        end
       end
     end
 
+    # These errors will usually be reported by the operating system's error
+    # code, but sometimes have alternatives:
     ZMQError.spawn :ENOTSUP,  1
     ZMQError.spawn :EPROTONOSUPPORT, 2
     ZMQError.spawn :ENOBUFS, 3
@@ -67,10 +76,14 @@ module EZmq
     ZMQError.spawn :EHOSTUNREACH, 17
     ZMQError.spawn :ENETRESET, 18
 
-    # The errors below are 0mq-specific and never system error codes
+    # The errors below are 0mq-specific:
     ZMQError.spawn :EFSM, 51
     ZMQError.spawn :ENOCOMPATPROTO, 52
     ZMQError.spawn :ETERM, 53
     ZMQError.spawn :EMTHREAD, 54
+
+    # The errors below don't have 0mq-specific codes, so the operating
+    # system code is always used:
+    ZMQError.spawn :EINVAL
   end
 end

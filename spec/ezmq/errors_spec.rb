@@ -30,11 +30,7 @@ module EZmq
             end
 
             it "can create an exception by errno" do
-              expect(Errors.by_errno(subject.errno)).to be_a(described_class)
-            end
-
-            it "can raise the exception by errno" do
-              expect {Errors.raise subject.errno}.to raise_error(described_class)
+              expect(Errors.by_errno(subject.errno)).to eq described_class
             end
 
             it "gets its description from ZeroMQ" do
@@ -49,7 +45,7 @@ module EZmq
               let(:system_class) {Errno.const_get(class_basename)}
 
               it "responds to the standard system errno" do
-                expect(Errors.errnos[system_class::Errno]).to eq described_class
+                expect(Errors.by_errno(system_class::Errno)).to eq described_class
               end
 
               it "uses the standard system errno canonically" do
@@ -67,6 +63,9 @@ module EZmq
           end
         end
       end
+
+      it "can retrieve errors by their number" do
+
 
     end
   end

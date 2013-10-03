@@ -1,5 +1,8 @@
+require 'weakref'
+
 module EZmq
   describe Context do
+
     it "can be created" do
       expect(subject).to be_a(Context)
     end
@@ -8,10 +11,33 @@ module EZmq
       expect(subject.ptr).to be_a(FFI::Pointer)
     end
 
+    describe "cleanup" do
+      before(:each) do
+        ObjectSpace.garbage_collect # Ensure pristine GC state every time
+      end
 
-    it "can clean itself up" do
-      expect(subject.destroy).to eq 0
+      it "can close itself" do
+        expect(API).to receive(:zmq_ctx_destroy).at_least(:once).and_call_original
+        subject.destroy
+      end
+
+      it "destroys its 0mq context if garbage collected" do
+        weakref, gc_counter = nil, 0
+        expect(API).to receive(:zmq_ctx_destroy).at_least(:once).and_call_original
+        begin
+          weakref = WeakRef.new(Context.new)
+        end
+        ObjectSpace.garbage_collect while weakref.weakref_alive? && (gc_counter += 1) < 10
+      end
+
+      it "throws an error if used after destruction" do
+        subject.destroy
+        expect {subject.io_threads}.to raise_error(NoMethodError)
+      end
+
     end
+
+
 
     describe "options" do
       it "knows its thread count" do
@@ -24,8 +50,7 @@ module EZmq
       end
 
       it "chokes if an invalid thread count is given" do
-        pending
-        expect {subject.io_threads = -1}.to raise_error
+        expect {subject.io_threads = -1}.to raise_error(Errors::EINVAL)
       end
 
       it "knows its socket maximum" do
@@ -37,5 +62,7 @@ module EZmq
         expect(subject.max_sockets).to eq 50
       end
     end
+
+
   end
 end
