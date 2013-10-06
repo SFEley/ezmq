@@ -1,4 +1,4 @@
-module EZmq
+module EZMQ
   # Testing all of the 0mq bits is a waste of time. We're just testing the
   # calling functionality.
   describe API, '#invoke' do
@@ -18,9 +18,9 @@ module EZmq
 
     it "raises the value of errno on a -1" do
       allow(described_class).to receive(:dummy).with(:break).and_return(-1)
-      allow(FFI).to receive(:errno).and_return(Errors::EINVAL::Errno)
+      allow(FFI).to receive(:errno).and_return(EINVAL::Errno)
       # (I hate stubbing FFI like that, but throwing 0mq errors just to make this test fail seems dirtier.)
-      expect {described_class.invoke :dummy, :break}.to raise_error(Errors::EINVAL)
+      expect {described_class.invoke :dummy, :break}.to raise_error(EINVAL)
     end
   end
 end

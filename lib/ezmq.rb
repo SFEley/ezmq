@@ -1,6 +1,7 @@
 require 'ezmq/api'
-require 'ezmq/errors'
+require 'ezmq/exceptions'
 require 'ezmq/context'
+require 'ezmq/sockets'
 
-module EZmq
+module EZMQ
 end

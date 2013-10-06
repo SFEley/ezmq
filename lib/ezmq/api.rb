@@ -1,6 +1,6 @@
 require 'ffi'
 
-module EZmq
+module EZMQ
   # The functions of the ZeroMQ C library are wrapped here. It's a direct
   # translation of `zmq_foo()` to `EZmq::API::zmq_foo`.  If you want to use
   # this module alone and ignore all of the Ruby objects from the rest
@@ -17,15 +17,15 @@ module EZmq
 
     attach_function 'zmq_strerror', [:int], :string
 
-    # Wraps 0mq's C-based calling semantics (return a 0 on success, -1 and
+    # Wraps 0MQ's C-based calling semantics (return a 0 on success, -1 and
     # get the errno on failures) in a much more Rubyish "give me what I
     # asked for or throw an exception" style.
-    # @param func [Symbol] Name of the 0mq API function to call
-    # @param *args [Array] Arguments passed directly to the 0mq function
+    # @param func [Symbol] Name of the 0MQ API function to call
+    # @param *args [Array] Arguments passed directly to the 0MQ function
     def self.invoke(name, *args)
       result = self.send name, *args
       if result == -1
-        raise Errors.by_errno(FFI.errno)
+        raise ZMQError.for_errno(FFI.errno)
       else
         result
       end
