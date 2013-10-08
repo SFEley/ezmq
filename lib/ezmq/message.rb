@@ -1,3 +1,5 @@
+require 'delegate'
+
 module EZMQ
   # A container class for multipart messages received from 0MQ. This class
   # *does not* map directly to any native 0MQ structures; rather, a
@@ -30,13 +32,14 @@ module EZMQ
   # mechanics for doing so are complex and error-prone, and Ruby's just not
   # good at that sort of direct access. Instead we aim for efficiency by
   # reusing 0MQ message buffers and clearing them frequently.
-  class Message
+  class Message < DelegateClass(Array)
     attr_reader :parts
 
     # Creates a new Message object. The object can begin life empty or can
     # be initialized from one or more strings or MessagePart objects.
     def initialize(*parts)
       @parts = parts
+      super(@parts)
     end
   end
 end
