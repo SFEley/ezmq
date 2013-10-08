@@ -23,16 +23,6 @@ module EZMQ
       described_class.terminate!
     end
 
-    it "returns the same context between threads" do
-      threads = []
-      10000.times do
-        threads << Thread.new {rand(10).times {Thread.pass}; Thread.current[:context] = EZMQ.context}
-      end
-      threads.each do |thread|
-        thread.join
-        expect(thread[:context]).to eq threads.first[:context]
-      end
-    end
   end
 
   describe Context do

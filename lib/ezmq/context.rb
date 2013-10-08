@@ -8,7 +8,7 @@ module EZMQ
   # using this placeholder, which will never be accidentally garbage
   # collected.
   def self.context
-    @context ||= Context.new
+    @context or Thread.exclusive {@context ||= Context.new}
   end
 
   # Closes every socket on the global context and then removes the context
