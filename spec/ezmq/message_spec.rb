@@ -7,11 +7,19 @@ module EZMQ
     end
 
     it "can be created without content" do
-      expect(Message.new).to be_empty
+      expect(described_class.new).to be_empty
     end
 
     it "stands in for an array" do
-      expect(subject[0]).to eq subject.parts[0]
+      expect([] + subject).to eq ['foo', 'bar']
+    end
+
+    it "stands in for a string" do
+      expect("" + subject).to eq "foobar"
+    end
+
+    it "defaults to a binary string" do
+      expect(subject.to_s.encoding).to eq Encoding::ASCII_8BIT
     end
   end
 end

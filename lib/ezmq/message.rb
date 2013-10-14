@@ -1,6 +1,7 @@
 require 'delegate'
 
 module EZMQ
+
   # A container class for multipart messages received from 0MQ. This class
   # *does not* map directly to any native 0MQ structures; rather, a
   # Message is a pure Ruby object collecting zero or more strings, which
@@ -34,12 +35,36 @@ module EZMQ
   # reusing 0MQ message buffers and clearing them frequently.
   class Message < DelegateClass(Array)
     attr_reader :parts
+    attr_accessor :part_separator, :encoding
 
     # Creates a new Message object. The object can begin life empty or can
     # be initialized from one or more strings or MessagePart objects.
     def initialize(*parts)
       @parts = parts
+      @part_separator = ''
       super(@parts)
     end
+
+    # Coerces the object into a string. The individual parts of the
+    # message are joined using the #part_separator (defaults to an empty
+    # string), and each individual part is transcoded into the #encoding
+    # attribute (which you should leave at the 8-bit binary default if
+    # you're uncertain).
+    def to_str
+      if parts.empty?
+        ''.force_encoding(Encoding::ASCII_8BIT)
+      else
+        parts.inject(nil) do |str, part|
+          if str
+            str << part_separator.encode(Encoding::ASCII_8BIT)
+          else
+            str = ''.force_encoding(Encoding::ASCII_8BIT)
+          end
+          str << part.encode(Encoding::ASCII_8BIT)
+        end
+      end
+    end
+    alias_method :to_s, :to_str
+
   end
 end
