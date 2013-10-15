@@ -36,18 +36,44 @@ module EZMQ
   class Message < DelegateClass(Array)
     include Comparable
 
+    class << self
+      # The default encoding for messages when treated as a string.
+      # Defaults to Encoding::BINARY.
+      attr_accessor :encoding
+
+      # The default separator to be placed between message parts when
+      # the Message is cast to a string. Defaults to an empty string
+      # (simple concatenation).
+      attr_accessor :part_separator
+    end
+    self.encoding = Encoding::BINARY
+    self.part_separator = ''
+
     attr_reader :parts
-    attr_accessor :part_separator, :encoding
+    attr_writer :part_separator, :encoding
+
 
     # Creates a new Message object. The object can begin life empty or can
     # be initialized from one or more strings or MessagePart objects.
     def initialize(*parts)
-      opts = parts.last.respond_to?(:fetch) ? parts.pop : {}
+      if parts.last.respond_to?(:fetch)
+        opts = parts.pop
+        @encoding = opts[:encoding] if opts[:encoding]
+        @part_separator = opts[:part_separator] if opts[:part_separator]
+      end
 
       @parts = parts
-      @encoding = opts.fetch :encoding, Encoding::BINARY
-      @part_separator = opts.fetch :part_separator, ''.force_encoding(encoding)
       super(@parts)
+    end
+
+    # @!attribute [r]
+    def encoding
+      @encoding || self.class.encoding
+    end
+
+    # @!attribute [r]
+    def part_separator
+      @part_separator || self.class.part_separator
     end
 
     # Coerces the object into a string. The individual parts of the

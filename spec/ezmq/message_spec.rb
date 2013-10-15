@@ -53,6 +53,13 @@ module EZMQ
         expect(subject.to_s.encoding).to eq Encoding::ASCII
       end
 
+      it "can set the encoding for the class" do
+        old_encoding = described_class.encoding
+        described_class.encoding = Encoding::UTF_8
+        expect(subject.to_s.encoding).to eq Encoding::UTF_8
+        described_class.encoding = old_encoding
+      end
+
       it "can match against regexes" do
         expect(subject).to match /ooba/
       end
@@ -80,6 +87,13 @@ module EZMQ
       it "can take another part separator after creation" do
         subject.part_separator = '^^'
         expect(subject).to eq 'foo^^bar'
+      end
+
+      it "can set the part separator for the class" do
+        old_separator = described_class.part_separator
+        described_class.part_separator = '#'
+        expect(subject).to be == 'foo#bar'
+        described_class.part_separator = old_separator
       end
     end
 

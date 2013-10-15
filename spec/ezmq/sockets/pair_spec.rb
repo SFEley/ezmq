@@ -9,5 +9,7 @@ module EZMQ
       this = described_class.new context: my_context
       expect(this.context).to eq my_context
     end
+
+
   end
 end
