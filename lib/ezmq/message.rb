@@ -34,14 +34,19 @@ module EZMQ
   # good at that sort of direct access. Instead we aim for efficiency by
   # reusing 0MQ message buffers and clearing them frequently.
   class Message < DelegateClass(Array)
+    include Comparable
+
     attr_reader :parts
     attr_accessor :part_separator, :encoding
 
     # Creates a new Message object. The object can begin life empty or can
     # be initialized from one or more strings or MessagePart objects.
     def initialize(*parts)
+      opts = parts.last.respond_to?(:fetch) ? parts.pop : {}
+
       @parts = parts
-      @part_separator = ''
+      @encoding = opts.fetch :encoding, Encoding::BINARY
+      @part_separator = opts.fetch :part_separator, ''.force_encoding(encoding)
       super(@parts)
     end
 
@@ -52,19 +57,43 @@ module EZMQ
     # you're uncertain).
     def to_str
       if parts.empty?
-        ''.force_encoding(Encoding::ASCII_8BIT)
+        ''.force_encoding(encoding)
       else
         parts.inject(nil) do |str, part|
           if str
-            str << part_separator.encode(Encoding::ASCII_8BIT)
+            str << part_separator.encode(encoding)
           else
-            str = ''.force_encoding(Encoding::ASCII_8BIT)
+            str = ''.force_encoding(encoding)
           end
-          str << part.encode(Encoding::ASCII_8BIT)
+          str << part.encode(encoding)
         end
       end
     end
     alias_method :to_s, :to_str
 
+    # Equality. A Message is equal to another object if it tests true
+    # using either String#== when cast to a string *or* Array#== for its
+    # parts (in that order).
+    def ==(val)
+      String.new(self) == val or super
+    end
+
+    # Comparison. A Message is first cast to a string and String#<=> is
+    # tested. If no value is returned, the message parts are tested using
+    # Array#<=>. The standard comparison operators (`<`, '<=', '>', '>='
+    # and `between?`) are implemented using Comparable.
+    def <=>(val)
+      String.new(self) <=> val or super
+    end
+
+    # Match. Equivalent to String#=~.
+    def =~(val)
+      String.new(self) =~ val
+    end
+
+    # Equivalent to String#match.
+    def match(val)
+      String.new(self).match val
+    end
   end
 end
