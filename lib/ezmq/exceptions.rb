@@ -20,6 +20,9 @@ module EZMQ
   # Raised on attempts to use a Context object after it's been destroyed.
   class ContextClosed < EZMQError; end
 
+  # Raised on attempts to use a Context object after it's been destroyed.
+  class SocketClosed < EZMQError; end
+
 
   # Base exception class for all errors coming from the 0MQ library.
   # These are distinguished entirely by their numeric error code.

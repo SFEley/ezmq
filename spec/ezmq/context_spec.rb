@@ -25,20 +25,29 @@ module EZMQ
 
   end
 
-  describe Context do
+  describe Context, :focus do
 
     it "can be created" do
       expect(subject).to be_a(Context)
     end
 
-    it "holds the pointer to the 0MQ context" do
-      expect(subject.ptr).to be_a(FFI::Pointer)
+    it "can be treated as a pointer to the 0MQ context" do
+      expect(subject.to_ptr).to be_a(FFI::Pointer)
+    end
+
+    it "raises an exception if it can't get a context" do
+      expect(API).to receive(:zmq_ctx_new).and_return(FFI::Pointer::NULL)
+      allow(FFI).to receive(:errno).and_return(ENOTSUP::Errno)
+
+      expect {subject}.to raise_error(ENOTSUP)
     end
 
     it "raises an exception if used after the 0MQ context is terminated" do
       subject.destroy
       expect {subject.io_threads}.to raise_error(ContextClosed)
     end
+
+
 
     describe "cleanup" do
       before(:each) do
@@ -57,6 +66,11 @@ module EZMQ
           weakref = WeakRef.new(Context.new)
         end
         ObjectSpace.garbage_collect while weakref.weakref_alive? && (gc_counter += 1) < 10
+      end
+
+      it "returns a null pointer if cast after closing" do
+        subject.terminate
+        expect(subject.to_ptr).to be_null
       end
 
     end
@@ -95,6 +109,30 @@ module EZMQ
       end
     end
 
+    describe "socket list" do
+
+      let(:socket) {double('Socket')}
+
+      it "begins empty" do
+        expect(subject.sockets).to be_empty
+      end
+
+      it "can be added to" do
+        expect {subject << socket}.to change {subject.sockets.count}.by(1)
+      end
+
+      it "can be removed" do
+        subject << socket
+        expect {subject.remove(socket)}.to change {subject.sockets.count}.by(-1)
+      end
+
+      it "closes out when the context is finished" do
+        subject << socket
+        expect(socket).to receive(:close)
+        subject.terminate
+      end
+
+    end
 
   end
 end

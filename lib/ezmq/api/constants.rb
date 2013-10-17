@@ -1,6 +1,6 @@
 module EZmq
   module API
-    # The 0mq library declares all of its option types, etc. as integers
+    # The 0MQ library declares all of its option types, etc. as integers
     # with `#define`-based constant names. This is inconvenient for
     # working with them in Ruby. Rather than clutter our code (or yours)
     # up with scores of ugly constants, we group them into a few hashes.

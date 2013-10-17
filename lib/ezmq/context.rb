@@ -33,26 +33,43 @@ module EZMQ
       max_sockets:  2
     }.freeze
 
+    attr_reader :sockets
+
     # Creates a new 0MQ context. Hooks are also established to terminate it
     # if this Ruby wrapper goes out of memory.
     # @option opts [Integer] :io_threads The size of the 0MQ thread pool for this context.
     # @option opts [Integer] :max_sockets The maximum number of sockets allowed for this context.
     def initialize(opts={})
-      @ptr = API::zmq_ctx_new
+      @ptr = API::invoke :zmq_ctx_new
+      @sockets = []
+
       self.io_threads = opts[:io_threads] if opts[:io_threads]
       self.max_sockets = opts[:max_sockets] if opts[:max_sockets]
 
       # Clean up if garbage collected
-      @destroyer = self.class.finalize(ptr)
+      @destroyer = self.class.finalize(@ptr, @sockets)
       ObjectSpace.define_finalizer self, @destroyer
     end
 
     # The FFI memory pointer to the 0MQ context object. You shouldn't need
     # to use this directly unless you're doing low-level work outside of
     # the EZMQ interface.
+    # @return [FFI::Pointer]
     # @raise [ContextClosed] if the context has already been destroyed
     def ptr
       @ptr or raise ContextClosed
+    end
+
+    # The FFI memory pointer to the 0MQ context object. Differs from the
+    # #ptr method in that it returns a null pointer if the context has
+    # been destroyed rather than throwing an exception. Enables API
+    # functions to accept this object wherever a context pointer would
+    # be needed.
+    # @return [FFI::Pointer]
+    def to_ptr
+      ptr
+    rescue ContextClosed
+      FFI::Pointer::NULL
     end
 
     # The size of the 0MQ thread pool for this context.
@@ -79,6 +96,19 @@ module EZMQ
       API::zmq_ctx_set(ptr, Options[:max_sockets], val)
     end
 
+
+    # @private
+    def <<(socket)
+      sockets << socket
+    end
+
+    # @private
+    def remove(socket)
+      sockets.delete(socket)
+    end
+
+
+
     # Closes any sockets and terminates the 0MQ context. Attempting to
     # access the context or any sockets after this will throw an exception.
     # @note This also occurs when the Context object is garbage collected.
@@ -91,8 +121,9 @@ module EZMQ
 
     # Creates a routine that will safely close any sockets and terminate
     # the 0MQ context upon garbage collection.
-    def self.finalize(ptr)
+    def self.finalize(ptr, sockets)
       Proc.new do
+        sockets.each &:close
         API::zmq_ctx_destroy(ptr)
       end
     end
