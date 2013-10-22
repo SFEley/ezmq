@@ -38,10 +38,28 @@ module EZMQ
         expect(subject.last_endpoint).to eq ep
       end
 
+      it "can bind with :inproc and make a name for itself" do
+        subject.bind :inproc
+        puts subject.endpoints
+        expect(subject.endpoints.first).to match %r[^inproc://#{subject.type}-\d+$]
+      end
+
+      it "can bind with :ipc and find its path" do
+        subject.bind :ipc
+        puts subject.endpoints.first
+        expect(File.exists?(subject.endpoints.first[%r{ipc://(.*)}, 1])).to be_true
+      end
+
+      it "can bind with :tcp and make it to port" do
+        subject.bind :tcp
+        puts subject.endpoints.first
+        expect(subject.endpoints.first).to match %r[^tcp://0.0.0.0:\d{4,5}]
+      end
+    end
+
+    describe "connecting" do
 
 
     end
-
-
   end
 end

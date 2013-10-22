@@ -21,12 +21,23 @@ module EZMQ
       XSUB:   10
     }
 
+    # The name of this particular kind of socket, as a symbol.
+    def self.type
+      @shortname ||= name.rpartition('::')[2].to_sym
+    end
+
+    # The name of this particular kind of socket, as a symbol.
+    def type
+      self.class.type
+    end
+
     # Returns the type number corresponding to this socket class.
     # Allows the class constant to be used as an integer value for the
     # 0MQ C API.
     def self.to_int
-      @to_int ||= Types[name.rpartition('::')[2].to_sym]
+      @to_int ||= Types[type]
     end
+
 
     # From include/zmq.h
     Options = {
@@ -66,7 +77,12 @@ module EZMQ
       xpub_verbose:             40
     }
 
+  private
+    # Simple counter to ensure sockets are distinguishable
+    @@socketnum = 0
 
-
+    def nextname
+      "#{type}-#{@@socketnum += 1}"
+    end
   end
 end

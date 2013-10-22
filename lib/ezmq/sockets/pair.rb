@@ -24,6 +24,8 @@ module EZMQ
     # The list of endpoints to which this socket is bound.
     attr_reader :endpoints
 
+    # Short name used for logging, routing, and inproc: bindings
+    attr_reader :name
 
     # The FFI memory pointer to the 0MQ socket object. You shouldn't need
     # to use this directly unless you're doing low-level work outside of
@@ -54,9 +56,12 @@ module EZMQ
     # @option opts [Context] :context The socket's 0MQ context; defaults to EZMQ::context
     # @option opts [String, Array<String>] :bind One or more addresses for this socket to listen on
     # @option opts [String, Array<String>] :connect One or more addresses for this socket to connect to
+    # @option opts [String] :name Simple human name for this socket. Used in logging, listings, automatic _inproc_ bindings and routing identifiers
     def initialize(opts={})
       @endpoints = []
       @context = opts.fetch(:context) {EZMQ.context}
+      @name = opts.fetch(:name) {nextname}
+
       @ptr = API::zmq_socket context, self.class
       context << self
     end
