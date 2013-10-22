@@ -25,7 +25,7 @@ module EZMQ
 
   end
 
-  describe Context, :focus do
+  describe Context do
 
     it "can be created" do
       expect(subject).to be_a(Context)

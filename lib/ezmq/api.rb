@@ -19,7 +19,12 @@ module EZMQ
     # Socket functions
     attach_function 'zmq_socket', [:pointer, :int], :pointer
     attach_function 'zmq_bind', [:pointer, :string], :int
+    attach_function 'zmq_connect', [:pointer, :string], :int
     attach_function 'zmq_getsockopt', [:pointer, :int, :pointer, :pointer], :int
+
+    # Message functions
+    attach_function 'zmq_send', [:pointer, :pointer, :int, :int], :int
+    attach_function 'zmq_recv', [:pointer, :pointer, :int, :int], :int
 
     # Info functions
     attach_function 'zmq_strerror', [:int], :string

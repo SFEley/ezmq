@@ -1,7 +1,7 @@
 module EZMQ
   # Testing all of the 0mq bits is a waste of time. We're just testing the
   # calling functionality.
-  describe API, '#invoke', :focus do
+  describe API, '#invoke' do
     it "throws a straight up Ruby error when the method doesn't exist" do
       expect{described_class.invoke :foo, '5'}.to raise_error(NoMethodError)
     end

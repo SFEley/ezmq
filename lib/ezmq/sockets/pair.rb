@@ -21,8 +21,13 @@ module EZMQ
     # the global EXMQ::context for the application.
     attr_reader :context
 
-    # The list of endpoints to which this socket is bound.
+    # The list of local endpoints to which this socket is bound.
+    # @see #bind
     attr_reader :endpoints
+
+    # The list of remote endpoints to which this socket is connected.
+    # @see #connect
+    attr_reader :connections
 
     # Short name used for logging, routing, and inproc: bindings
     attr_reader :name
@@ -54,20 +59,23 @@ module EZMQ
     # begin life bound to any interfaces or connected to any other 0MQ
     # sockets, but you can customize this with options.
     # @option opts [Context] :context The socket's 0MQ context; defaults to EZMQ::context
-    # @option opts [String, Array<String>] :bind One or more addresses for this socket to listen on
-    # @option opts [String, Array<String>] :connect One or more addresses for this socket to connect to
+    # @option opts [String, Symbol, Array<String, Symbol>] :bind One or more endpoints or endpoint shortcuts for this socket to listen on
+    # @option opts [String, Array<String>] :connect One or more endpoints for this socket to connect to
     # @option opts [String] :name Simple human name for this socket. Used in logging, listings, automatic _inproc_ bindings and routing identifiers
     def initialize(opts={})
-      @endpoints = []
+      @endpoints, @connections = [], []
       @context = opts.fetch(:context) {EZMQ.context}
       @name = opts.fetch(:name) {nextname}
 
       @ptr = API::zmq_socket context, self.class
       context << self
+
+      bind *opts[:bind] if opts[:bind]
+      connect *opts[:connect] if opts[:connect]
     end
 
-    # Binds the socket to begin listening on one or more specific addresses.
-    # The address is a URI with a different format for different protocols.
+    # Binds the socket to begin listening on one or more local endpoints.
+    # The endpoint is a URI with a different format for different protocols.
     # EZMQ can recognize and handle the following binding patterns:
     #
     # * **:inproc** - Creates an *inproc* transport using the socket's name
@@ -111,6 +119,88 @@ module EZMQ
       endpoints
     end
 
+    # Connects the socket to one or more remote or local endpoints.
+    # The endpoint usually need not have a socket bound to it already
+    # (except for *inproc* addresses).  See {#bind} for a deeper description
+    # of endpoint formats. Endpoint shortcuts such as `:inproc` and `:tcp`
+    # are not valid for connecting; you must give a precise endpoint string.
+    #
+    # @note Creating a 0MQ socket connection does not guarantee that a
+    # real network link will happen immediately. 0MQ connects and
+    # disconnects from the transport as needed when messages are sent or
+    # polled for receiving. So a successful {#connect} call does not mean
+    # that the connection is valid and can be established. You are
+    # responsible for the validity of your own endpoints.
+    #
+    # @param *addresses [String] List of endpoints to connect to.
+    # @return [Array] The list of this socket's connections.
+    def connect(*addresses)
+      addresses.each do |address|
+        API::invoke :zmq_connect, self, address
+        connections << address
+      end
+      connections
+    end
+
+    # Sends a single- or multi-part message on the socket. Messages can be
+    # single strings, lists of strings, or {Message} objects. If you want to
+    # delay sending until more parts can be delivered, use the `more: true`
+    # option for all but the last part.
+    #
+    # If the message
+    # can't be immediately queued -- no connections, the sending high-water
+    # mark was reached, etc. -- the default behavior is to block until it
+    # can be sent. You can alter this by either passing the `async: true`
+    # option (which will raise a {ZMQError::EAGAIN} on a temporary send
+    # failure) or by passing a block implementing your own behavior for
+    # resending, logging the failure, or whatever else is appropriate. The
+    # block will receive a {Message} containing all parts that have been
+    # queued for the current send.
+    #
+    # @note We are well aware that this method name conflicts with the
+    # basic Ruby {Object#send} for calling arbitrary methods. We are *not*
+    # breaking that behavior; if the first argument to the method call is
+    # a Symbol, we pass it on to {#__send__}. Make sure you're always
+    # sending strings or Messages to avoid accidental method invocation.
+    #
+    # @param *message [String, Array<String>, Message] The content to be delivered.
+    # @param opts [Hash, optional] Options for additional parts or non-blocking.
+    # @option opts [Boolean] :more If true, don't send immediately; wait for additional parts.
+    # @option opts [Boolean] :async If true, raises {EAGAIN} or passes to the supplied block if the message can't be queued for sending immediately.
+    # @yield Block invoked if the message can't be sent immediately. Implies `async: true`.
+    # @yieldparam message [Message] Accumulated parts of the message that was delayed.
+    # @return [Fixnum] The total number of bytes queued for sending.
+    def send(*message)
+      if message.last.respond_to?(:fetch)
+        opts = message.pop
+      end
+
+      message.each do |part|
+        ptr = FFI::MemoryPointer.new :char, part.bytesize
+        ptr.put_bytes 0, part
+        API::invoke :zmq_send, self, ptr, part.bytesize, 0
+      end
+    end
+
+    # Receives a message from the socket. The return is a {Message} object
+    # containing one or more parts, which duck types reasonably well to a
+    # String or to an Array.
+    #
+    # If no message is immediately available, the default behavior is to
+    # block until one arrives. You can assure a fast return by setting the
+    # `async: true` option, which will raise a {ZMQError::EAGAIN} if no
+    # message is available. (Event-driven callbacks are planned for a
+    # future release.)
+    #
+    # @param opts [Hash, optional] Options for non-blocking.
+    # @option opts [Boolean] :async If true, raises {EAGAIN} when a message is not yet available.
+    # @return [Message]
+    def receive(opts={})
+      ptr = FFI::MemoryPointer.new :char, 255
+      API::invoke :zmq_recv, self, ptr, 255, 0
+      ptr.read_string
+    end
+
     # Returns the most recently bound address that this socket is listening
     # to from 0MQ.
     def last_endpoint
@@ -120,6 +210,7 @@ module EZMQ
       API::invoke :zmq_getsockopt, self, Options[:last_endpoint], val_pointer, size_pointer
       val_pointer.read_string
     end
+    alias_method :endpoint, :last_endpoint
 
   private
     def parse_address(address)
