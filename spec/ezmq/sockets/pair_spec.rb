@@ -1,5 +1,5 @@
 module EZMQ
-  describe PAIR, :focus do
+  describe PAIR do
     it "defaults to the global context" do
       expect(subject.context).to eq EZMQ.context
     end
@@ -20,6 +20,11 @@ module EZMQ
 
     it "can be treated as a pointer to the socket" do
       expect(subject.to_ptr).to be_a(FFI::Pointer)
+    end
+
+    it "falls back to Ruby #send when given a symbol" do
+      expect(subject.send :kind_of?, Socket).to be_true
+      expect(subject.send :instance_of?, Socket).to be_false
     end
 
 
@@ -74,6 +79,12 @@ module EZMQ
         this = described_class.new bind: [:inproc, :tcp]
         expect(this).to have(2).endpoints
       end
+
+      it "chokes on invalid endpoints" do
+        ['blah', 'invalid://thing.here', :foo, nil].each do |bad_endpoint|
+          expect {subject.bind bad_endpoint}.to raise_error(InvalidEndpoint, /#{bad_endpoint}/)
+        end
+      end
     end
 
     describe "connecting" do
@@ -93,15 +104,35 @@ module EZMQ
         this = described_class.new :connect => endpoint
         expect(this.connections).to include(endpoint)
       end
+
+      it "can be given a local socket" do
+        subject.connect bound
+        expect(subject.connections).to include(endpoint)
+      end
+
+      it "creates an inproc transport if given a local socket without one" do
+        this = described_class.new :bind => :tcp
+        subject.connect this
+        expect(this).to have(2).endpoints
+        expect(subject.connections).to include(this.endpoints[1])
+      end
+
+      it "chokes on invalid endpoints" do
+        ['blah', 'invalid://thing.here', :foo, nil].each do |bad_endpoint|
+          expect {subject.connect bad_endpoint}.to raise_error(InvalidEndpoint, /#{bad_endpoint}/)
+        end
+      end
     end
 
-    describe "sending and receiving" do
-      let!(:left) {described_class.new :bind => :inproc}
-      let!(:right) {described_class.new :connect => left.endpoint}
+    describe "with another PAIR socket" do
+      let(:other) {PAIR.new :bind => :inproc}
+      before do
+        subject.connect other
+      end
 
       it "can send a single-part message" do
-        left.send "Now is the time for all good men to come to the aid of their party!"
-        right.receive.should eq "Now is the time for all good men to come to the aid of their party!"
+        subject.send "Now is the time for all good men to come to the aid of their party!"
+        other.receive.should eq "Now is the time for all good men to come to the aid of their party!"
       end
 
     end

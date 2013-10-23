@@ -20,9 +20,16 @@ module EZMQ
   # Raised on attempts to use a Context object after it's been destroyed.
   class ContextClosed < EZMQError; end
 
-  # Raised on attempts to use a Context object after it's been destroyed.
+  # Raised on attempts to use a Socket object after it's been destroyed.
   class SocketClosed < EZMQError; end
 
+  # Raised when a bad address is given for binding or connecting.
+  class InvalidEndpoint < EZMQError
+    # @param endpoint [Object] The endpoint that wasn't valid.
+    def initialize(endpoint, *args)
+      super("Address '#{endpoint}' is not a valid endpoint.", *args)
+    end
+  end
 
   # Base exception class for all errors coming from the 0MQ library.
   # These are distinguished entirely by their numeric error code.
