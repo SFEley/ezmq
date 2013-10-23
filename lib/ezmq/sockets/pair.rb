@@ -168,8 +168,9 @@ module EZMQ
     # @note We are well aware that this method name conflicts with the
     # basic Ruby {Object#send} for calling arbitrary methods. We are *not*
     # breaking that behavior; if the first argument to the method call is
-    # a Symbol, we pass it on to {#__send__}. Make sure you're always
-    # sending strings or Messages to avoid accidental method invocation.
+    # a Symbol, we fall back to the inherited {Object#send}. Make sure
+    # you're always sending strings or Messages to avoid accidental method
+    # invocation.
     #
     # @param *message [String, Array<String>, Message] The content to be delivered.
     # @param opts [Hash, optional] Options for additional parts or non-blocking.
