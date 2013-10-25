@@ -172,24 +172,24 @@ module EZMQ
     # you're always sending strings or Messages to avoid accidental method
     # invocation.
     #
-    # @param *message [String, Array<String>, Message] The content to be delivered.
+    # @param *parts [String, Array<String>, Message] The content to be delivered.
     # @param opts [Hash, optional] Options for additional parts or non-blocking.
     # @option opts [Boolean] :more If true, don't send immediately; wait for additional parts.
     # @option opts [Boolean] :async If true, raises {EAGAIN} or passes to the supplied block if the message can't be queued for sending immediately.
     # @yield Block invoked if the message can't be sent immediately. Implies `async: true`.
     # @yieldparam message [Message] Accumulated parts of the message that was delayed.
     # @return [Fixnum] The total number of bytes queued for sending.
-    def send(*message)
-      return super if message.first.is_a?(Symbol)
+    def send(*parts)
+      return super if parts.first.is_a?(Symbol)
 
-      if message.last.respond_to?(:fetch)
+      if parts.last.respond_to?(:fetch)
         opts = message.pop
       end
 
-      message.each do |part|
+      while part = parts.shift
         ptr = FFI::MemoryPointer.new :char, part.bytesize
         ptr.put_bytes 0, part
-        API::invoke :zmq_send, self, ptr, part.bytesize, 0
+        API::invoke :zmq_send, self, ptr, part.bytesize, parts.empty? ? 0 : 1
       end
     end
 
@@ -203,14 +203,62 @@ module EZMQ
     # message is available. (Event-driven callbacks are planned for a
     # future release.)
     #
-    # @param opts [Hash, optional] Options for non-blocking.
+    # @note By default, message parts are received using the 0MQ
+    # `zmq_msg_recv` API, which allows content of any length but is
+    # moderately complex and requires multiple Ruby steps to manage
+    # memory structures.  If you know your message parts will never exceed
+    # a certain length (or if you want to cap them on purpose to avoid
+    # memory overruns) consider using the *:size* option, which will
+    # trigger the simpler and marginally faster `zmq_recv` API. Message parts
+    # larger than your stated *:size* in bytes will be truncated; parts
+    # of that size or smaller will be unaffected.
+
+    #
+    # @param opts [Hash, optional] Options for non-blocking and size limits.
     # @option opts [Boolean] :async If true, raises {EAGAIN} when a message is not yet available.
     # @return [Message]
     def receive(opts={})
-      ptr = FFI::MemoryPointer.new :char, 255
-      API::invoke :zmq_recv, self, ptr, 255, 0
-      ptr.read_string
+      receive_part opts
     end
+
+    # Gets a single message part from the socket. There may or may not be
+    # more parts after this one; use {#more?} to check.
+    #
+    # If no message is immediately available, the default behavior is to
+    # block until one arrives. You can assure a fast return by setting the
+    # `async: true` option, which will raise a {ZMQError::EAGAIN} if no
+    # message is available. (Event-driven callbacks are planned for a
+    # future release.)
+    #
+    # @note By default, message parts are received using the 0MQ
+    # `zmq_msg_recv` API, which allows content of any length but is
+    # moderately complex and requires multiple Ruby steps to manage
+    # memory structures.  If you know your messages will never exceed
+    # a certain length (or if you want to cap them on purpose to avoid
+    # memory overruns) consider using the *:size* option, which will
+    # trigger the simpler and marginally faster `zmq_recv` API. Messages
+    # larger than your stated *:size* in bytes will be truncated; messages
+    # of that size or smaller will be unaffected.
+    #
+    # @note If you fail to retrieve every part
+    # of a message in progress, blocking or other strange things may happen.
+    # Using this method makes you responsible for your own flow control.
+    # Unless your use case or data sizes compel you to process parts
+    # incrementally, it *usually* makes more sense to use the {#receive}
+    # method to get all parts at once.
+    #
+    # @param opts [Hash, optional] Options for non-blocking and size limits.
+    # @option opts [Boolean] :async If true, raises {EAGAIN} when a message is not yet available.
+    # @option opts [Fixnum] :size If specified, capture the part in a fixed-size buffer and truncate it at the given byte limit.
+    def receive_part(opts={})
+      if opts[:size]
+        recv opts[:size].to_i, opts[:async]
+      else
+        msg_recv opts[:async]
+      end
+    end
+
+
 
     # Returns the most recently bound address that this socket is listening
     # to from 0MQ.
@@ -244,6 +292,19 @@ module EZMQ
       when %r[^(tcp|ipc|inproc|e?pgm)://.+] then address
       else raise InvalidEndpoint, address
       end
+    end
+
+    def recv(size, async)
+      ptr = FFI::MemoryPointer.new :char, size
+      API::invoke :zmq_recv, self, ptr, size, 0
+      ptr.read_string
+    end
+
+    def msg_recv(async)
+      msg = MessageFrame.new
+
+
+
     end
   end
 end

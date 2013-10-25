@@ -1,5 +1,5 @@
 module EZMQ
-  describe PAIR do
+  describe PAIR, :focus do
     it "defaults to the global context" do
       expect(subject.context).to eq EZMQ.context
     end
@@ -124,7 +124,7 @@ module EZMQ
       end
     end
 
-    describe "with another PAIR socket" do
+    describe "sending" do
       let(:other) {PAIR.new :bind => :inproc}
       before do
         subject.connect other
@@ -135,6 +135,28 @@ module EZMQ
         other.receive.should eq "Now is the time for all good men to come to the aid of their party!"
       end
 
+      it "can send a multi-part message" do
+        subject.send "Hello", "World!"
+        expect(other.receive).to include "Hello", "World!"
+      end
+    end
+
+    describe "receiving" do
+      let(:other) {PAIR.new :bind => :inproc}
+      before do
+        subject.connect other
+      end
+
+
+      it "can receive a single-part message" do
+        other.send "Now is the time for all good men to come to the aid of their party!"
+        expect(subject.receive).to eq "Now is the time for all good men to come to the aid of their party!"
+      end
+
+      it "can receive a multi-part message" do
+        other.send "Hello", "World!"
+        expect(subject.receive).to include "Hello", "World!"
+      end
     end
   end
 end

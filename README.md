@@ -4,8 +4,10 @@ EZMQ is a next-generation Ruby binding for the [ZeroMQ](http://zeromq. org) mess
 
 ```ruby
 require 'ezmq'
+
 alice = EZMQ::PAIR.new bind: :inproc
 bob = EZMQ::PAIR.new connect: alice
+
 alice.send "Hello world!"
 puts bob.receive  # => "Hello world!"
 ```
@@ -14,7 +16,7 @@ This example isn't as contrived as it looks. A few interesting things:
 
 * A global 0MQ *Context* is created the first time a *Socket* needs one. It's smart enough to track and close all of its sockets if it goes out of scope or the application exits. If you need multiple contexts you can create them, but in most cases you'll never need to think about them at all.
 * You can bind and/or connect sockets on creation or at any time after. You can query the Socket object for lists of connections and bindings. 
-* Endpoints for binding can be specified as proper addressees ("tcp://192.168.100.100:9876") or you can provide shortcut symbols for certain transports:
+* Endpoints for binding can be specified as proper URIs ("tcp://192.168.100.100:9876") or you can provide shortcut symbols for certain transports:
     * The `:inproc` shortcut creates an internal transport with an automatically generated name.
     * The `:ipc` shortcut creates a Unix domain socket in a temp directory with a random unique filename.
     * The `:tcp` shortcut binds to a system-assigned available port on all network addresses. 

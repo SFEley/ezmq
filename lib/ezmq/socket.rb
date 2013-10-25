@@ -1,4 +1,5 @@
 require 'ezmq/message'
+require 'ezmq/message_frame'
 
 module EZMQ
 
