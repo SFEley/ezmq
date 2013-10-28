@@ -40,8 +40,23 @@ module EZMQ
   #    collected, but you shouldn't want to resort to that. Not only is it
   #    much slower, but the message buffers themselves are outside of Ruby's
   #    memory space and thus won't trigger garbage collection. If you're
-  #    dealing with large messages you'll have major memory leaks.
+  #    dealing with large messages you may find yourself running out of
+  #    memory without the Ruby interpreter noticing.
+  # 9. The `zmq_msg_init_data` API is not implemented. Its purpose and
+  #    semantics just don't make a lot of sense for Ruby.
   class MessageFrame
+
+    # @overload initialize()
+    #   Creates and initializes an empty 0MQ message structure. This is
+    #   primarily useful as a container for receiving messages of arbitrary
+    #   length.
+    def initialize
+
+
+
+    end
+
+  private
 
 
   end

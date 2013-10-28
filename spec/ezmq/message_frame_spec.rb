@@ -1,8 +1,8 @@
 module EZMQ
-  describe MessageFrame do
-    it "calls zmq_msg_init on creation" do
+  describe MessageFrame, :focus do
+    it "calls zmq_msg_init on creation if no content or size are given" do
       expect(API).to receive(:zmq_msg_init)
-      subject
+      described_class.new
     end
 
   end
