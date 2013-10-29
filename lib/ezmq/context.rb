@@ -69,7 +69,7 @@ module EZMQ
     def to_ptr
       ptr
     rescue ContextClosed
-      FFI::Pointer::NULL
+      Fiddle::NULL
     end
 
     # The size of the 0MQ thread pool for this context.

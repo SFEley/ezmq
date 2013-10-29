@@ -18,7 +18,7 @@ module EZMQ
 
     it "raises the value of errno on a -1" do
       allow(described_class).to receive(:dummy).with(:numeric).and_return(-1)
-      allow(FFI).to receive(:errno).and_return(EINVAL::Errno)
+      allow(Fiddle).to receive(:last_error).and_return(EINVAL::Errno)
 
       # (I hate stubbing FFI like that, but throwing 0mq errors just to make this test fail seems dirtier.)
       expect {described_class.invoke :dummy, :numeric}.to raise_error(EINVAL)
@@ -26,8 +26,8 @@ module EZMQ
 
 
     it "raises the value of errno on a null pointer" do
-      allow(described_class).to receive(:dummy).with(:pointer).and_return(FFI::Pointer::NULL)
-      allow(FFI).to receive(:errno).and_return(EINVAL::Errno)
+      allow(described_class).to receive(:dummy).with(:pointer).and_return(Fiddle::NULL)
+      allow(Fiddle).to receive(:last_error).and_return(EINVAL::Errno)
 
       # (I hate stubbing FFI like that, but throwing 0mq errors just to make this test fail seems dirtier.)
       expect {described_class.invoke :dummy, :pointer}.to raise_error(EINVAL)

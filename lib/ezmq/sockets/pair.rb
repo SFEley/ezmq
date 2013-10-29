@@ -32,7 +32,7 @@ module EZMQ
     # Short name used for logging, routing, and inproc: bindings
     attr_reader :name
 
-    # The FFI memory pointer to the 0MQ socket object. You shouldn't need
+    # The memory pointer to the 0MQ socket object. You shouldn't need
     # to use this directly unless you're doing low-level work outside of
     # the EZMQ interface.
     # @raise [SocketClosed] if the socket has already been destroyed
@@ -45,11 +45,11 @@ module EZMQ
     # been destroyed rather than throwing an exception. Enables API
     # functions to accept this object wherever a socket pointer would
     # be needed.
-    # @return [FFI::Pointer]
+    # @return [Fiddle::Pointer]
     def to_ptr
       ptr
     rescue SocketClosed
-      FFI::Pointer::NULL
+      Fiddle::NULL
     end
 
 
@@ -187,7 +187,7 @@ module EZMQ
       end
 
       while part = parts.shift
-        ptr = FFI::MemoryPointer.new :char, part.bytesize
+        ptr = Fiddle::Pointer.new :char, part.bytesize
         ptr.put_bytes 0, part
         API::invoke :zmq_send, self, ptr, part.bytesize, parts.empty? ? 0 : 1
       end
@@ -263,13 +263,18 @@ module EZMQ
     # Returns the most recently bound address that this socket is listening
     # to from 0MQ.
     def last_endpoint
-      val_pointer = FFI::MemoryPointer.new(255)
-      size_pointer = FFI::MemoryPointer.new(:size_t)
-      size_pointer.write_int(255)
+      val_pointer = Fiddle::Pointer.malloc(255)
+      size_pointer = Fiddle::Pointer.malloc(Fiddle::SIZEOF_SIZE_T)
+      size_pointer[0] = 255
       API::invoke :zmq_getsockopt, self, Options[:last_endpoint], val_pointer, size_pointer
-      val_pointer.read_string
+      val_pointer.to_s(size_pointer[0].to_i - 1)
     end
     alias_method :endpoint, :last_endpoint
+
+    # Closes this socket.
+    def close
+      API::invoke :zmq_close, self
+    end
 
   private
     def parse_for_binding(address)

@@ -73,7 +73,7 @@ module EZMQ
       the_errno = ::Errno.const_defined?(name) ? ::Errno.const_get(name)::Errno : HAUSNUMERO + offset
       spawned = Class.new(self)
       spawned.const_set :Errno, the_errno
-      spawned.const_set :Message, API::zmq_strerror(the_errno)
+      spawned.const_set :Message, API::zmq_strerror(the_errno).to_s
       EZMQ.const_set name, spawned
       ERRNOS[the_errno] = spawned
       if offset > 0 and the_errno < HAUSNUMERO

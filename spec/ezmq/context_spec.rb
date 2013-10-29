@@ -32,12 +32,12 @@ module EZMQ
     end
 
     it "can be treated as a pointer to the 0MQ context" do
-      expect(subject.to_ptr).to be_a(FFI::Pointer)
+      expect(subject.to_ptr).to be_a(Fiddle::Pointer)
     end
 
     it "raises an exception if it can't get a context" do
-      expect(API).to receive(:zmq_ctx_new).and_return(FFI::Pointer::NULL)
-      allow(FFI).to receive(:errno).and_return(ENOTSUP::Errno)
+      expect(API).to receive(:zmq_ctx_new).and_return(Fiddle::NULL)
+      allow(Fiddle).to receive(:last_error).and_return(ENOTSUP::Errno)
 
       expect {subject}.to raise_error(ENOTSUP)
     end

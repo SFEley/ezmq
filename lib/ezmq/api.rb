@@ -1,4 +1,4 @@
-require 'ffi'
+require 'fiddle/import'
 
 module EZMQ
   # The functions of the ZeroMQ C library are wrapped here. It's a direct
@@ -7,27 +7,28 @@ module EZMQ
   # of the EZmq gem, knock yourself out. Just know your FFI pointers and
   # be careful with your setup and teardown.
   module API
-    extend FFI::Library
-    ffi_lib 'zmq'
+    extend Fiddle::Importer
+    dlload 'libzmq.dylib'
 
     # Context functions
-    attach_function 'zmq_ctx_new', [], :pointer
-    attach_function 'zmq_ctx_get', [:pointer, :int], :int
-    attach_function 'zmq_ctx_set', [:pointer, :int, :int], :int
-    attach_function 'zmq_ctx_destroy', [:pointer], :int
+    extern 'void* zmq_ctx_new ()'
+    extern 'int zmq_ctx_get (void*, int)'
+    extern 'int zmq_ctx_set (void*, int, int)'
+    extern 'int zmq_ctx_destroy (void*)'
 
-    # Socket functions
-    attach_function 'zmq_socket', [:pointer, :int], :pointer
-    attach_function 'zmq_bind', [:pointer, :string], :int
-    attach_function 'zmq_connect', [:pointer, :string], :int
-    attach_function 'zmq_getsockopt', [:pointer, :int, :pointer, :pointer], :int
+    # # Socket functions
+    extern 'void* zmq_socket (void*, int)'
+    extern 'int zmq_close(void*)'
+    extern 'int zmq_bind (void*, const char*)'
+    extern 'int zmq_connect (void*, const char*)'
+    extern 'int zmq_getsockopt (void*, int, void*, size_t*)'
 
-    # Message functions
-    attach_function 'zmq_send', [:pointer, :pointer, :int, :int], :int
-    attach_function 'zmq_recv', [:pointer, :pointer, :int, :int], :int
+    # # Message functions
+    extern 'int zmq_send (void*, void*, size_t, int)'
+    extern 'int zmq_recv (void*, void*, size_t, int)'
 
     # Info functions
-    attach_function 'zmq_strerror', [:int], :string
+    extern 'const char *zmq_strerror (int)'
 
     # Wraps 0MQ's C-based calling semantics (return a 0 on success, -1 or
     # null pointer and get the errno on failures) in a much more Rubyish
@@ -38,11 +39,11 @@ module EZMQ
     def self.invoke(name, *args)
       result = self.send name, *args
       case result
-      when FFI::Pointer
-        raise ZMQError.for_errno(FFI.errno) if result.null?
+      when Fiddle::Pointer
+        raise ZMQError.for_errno(Fiddle.last_error) if result.null?
         result
       when Fixnum
-        raise ZMQError.for_errno(FFI.errno) if result == -1
+        raise ZMQError.for_errno(Fiddle.last_error) if result == -1
         result
       else
         result

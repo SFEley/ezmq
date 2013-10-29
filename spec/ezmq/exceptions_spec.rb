@@ -29,7 +29,7 @@ module EZMQ
           end
 
           it "gets its description from ZeroMQ" do
-            expect(subject.message).to eq API::zmq_strerror(subject.errno)
+            expect(subject.message).to eq API::zmq_strerror(subject.errno).to_s
           end
 
           it "has a real description" do
