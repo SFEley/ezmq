@@ -32,6 +32,24 @@ module EZMQ
     # Short name used for logging, routing, and inproc: bindings
     attr_reader :name
 
+    # @!attribute [rw] backlog
+    #   The maximum number of outstanding connections to this socket
+    #   (for connection-oriented transports such as *tcp*). See your
+    #   OS documentation for the *listen* function. Defaults to 100.
+    socket_option :backlog
+
+    # @!attribute [rw] linger
+    #   The time in milliseconds that the socket will wait for pending
+    #   messages to be handled upon closing. A value of 0 means that
+    #   the socket will always close immediately, discarding pending
+    #   messages. A value of -1 means that the socket will wait forever
+    #   for messages to be delivered before closing. Defaults to the
+    #   value of the class attribute if one is defined, or to `EZMQ.linger`
+    #   if defined (1 second unless overridden), or to -1.
+    socket_option :linger
+
+
+
     # The memory pointer to the 0MQ socket object. You shouldn't need
     # to use this directly unless you're doing low-level work outside of
     # the EZMQ interface.
@@ -45,11 +63,11 @@ module EZMQ
     # been destroyed rather than throwing an exception. Enables API
     # functions to accept this object wherever a socket pointer would
     # be needed.
-    # @return [Fiddle::Pointer]
+    # @return [API::Pointer]
     def to_ptr
       ptr
     rescue SocketClosed
-      Fiddle::NULL
+      API::NULL
     end
 
 
@@ -76,6 +94,11 @@ module EZMQ
       # Clean up if garbage collected
       @destroyer = self.class.finalize(@ptr)
       ObjectSpace.define_finalizer self, @destroyer
+
+      # Set linger value
+      if EZMQ.linger
+        self.linger = EZMQ.linger
+      end
     end
 
     # Binds the socket to begin listening on one or more local endpoints.
@@ -191,7 +214,7 @@ module EZMQ
       end
 
       while part = parts.shift
-        ptr = Fiddle::Pointer.new :char, part.bytesize
+        ptr = API::Pointer.new :char, part.bytesize
         ptr.put_bytes 0, part
         API::invoke :zmq_send, self, ptr, part.bytesize, parts.empty? ? 0 : 1
       end
@@ -267,8 +290,8 @@ module EZMQ
     # Returns the most recently bound address that this socket is listening
     # to from 0MQ.
     def last_endpoint
-      val_pointer = Fiddle::Pointer.malloc(255)
-      size_pointer = Fiddle::Pointer.malloc(Fiddle::SIZEOF_SIZE_T)
+      val_pointer = API::Pointer.malloc(255)
+      size_pointer = API::Pointer.malloc(Fiddle::SIZEOF_SIZE_T)
       size_pointer[0] = 255
       API::invoke :zmq_getsockopt, self, Options[:last_endpoint], val_pointer, size_pointer
       val_pointer.to_s(size_pointer[0].to_i - 1)
@@ -323,9 +346,7 @@ module EZMQ
 
     def msg_recv(async)
       msg = MessageFrame.new
-
-
-
     end
+
   end
 end

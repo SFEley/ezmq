@@ -26,7 +26,7 @@ module EZMQ
 
 
     it "raises the value of errno on a null pointer" do
-      allow(described_class).to receive(:dummy).with(:pointer).and_return(Fiddle::NULL)
+      allow(described_class).to receive(:dummy).with(:pointer).and_return(API::NULL)
       allow(Fiddle).to receive(:last_error).and_return(EINVAL::Errno)
 
       # (I hate stubbing FFI like that, but throwing 0mq errors just to make this test fail seems dirtier.)

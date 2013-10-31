@@ -1,13 +1,21 @@
-require 'fiddle/import'
-
 module EZMQ
+
+  # Which dynamic loading library we use (DL or Fiddle) and parts of how we
+  # use it depend on the Ruby version. *DO NOT* require more than one of
+  # these adapter methods. You'll confuse the poor thing.
+  case RUBY_VERSION
+  when /^2\./ then require 'ezmq/api/mri_2_0'
+  else raise "Unknown ruby version!"
+  end
+
+
   # The functions of the ZeroMQ C library are wrapped here. It's a direct
   # translation of `zmq_foo()` to `EZmq::API::zmq_foo`.  If you want to use
   # this module alone and ignore all of the Ruby objects from the rest
   # of the EZmq gem, knock yourself out. Just know your FFI pointers and
   # be careful with your setup and teardown.
   module API
-    extend Fiddle::Importer
+
     dlload 'libzmq.dylib'
 
     # Context functions
@@ -22,14 +30,12 @@ module EZMQ
     extern 'int zmq_bind (void*, const char*)'
     extern 'int zmq_connect (void*, const char*)'
     extern 'int zmq_getsockopt (void*, int, void*, size_t*)'
+    extern 'int zmq_setsockopt (void*, int, void*, size_t)'
     extern 'int zmq_send (void*, void*, size_t, int)'
     extern 'int zmq_recv (void*, void*, size_t, int)'
 
     # Message functions
     extern 'int zmq_msg_init (zmq_msg_t*)'
-
-    THING = import_symbol()
-
 
     # Info functions
     extern 'const char *zmq_strerror (int)'
@@ -43,7 +49,7 @@ module EZMQ
     def self.invoke(name, *args)
       result = self.send name, *args
       case result
-      when Fiddle::Pointer
+      when Pointer
         raise ZMQError.for_errno(Fiddle.last_error) if result.null?
         result
       when Fixnum

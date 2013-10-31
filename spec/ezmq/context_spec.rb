@@ -4,7 +4,7 @@ module EZMQ
   describe EZMQ, "global context" do
     before {EZMQ.terminate!}
 
-    it "has a global context" do
+    it "is always there when we need it" do
       expect(described_class.context).to be_a Context
     end
 
@@ -32,11 +32,11 @@ module EZMQ
     end
 
     it "can be treated as a pointer to the 0MQ context" do
-      expect(subject.to_ptr).to be_a(Fiddle::Pointer)
+      expect(subject.to_ptr).to be_a(API::Pointer)
     end
 
     it "raises an exception if it can't get a context" do
-      expect(API).to receive(:zmq_ctx_new).and_return(Fiddle::NULL)
+      expect(API).to receive(:zmq_ctx_new).and_return(API::NULL)
       allow(Fiddle).to receive(:last_error).and_return(ENOTSUP::Errno)
 
       expect {subject}.to raise_error(ENOTSUP)
