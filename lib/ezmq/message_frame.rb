@@ -51,10 +51,19 @@ module EZMQ
     #   primarily useful as a container for receiving messages of arbitrary
     #   length.
     def initialize
-
-
-
+      @ptr = Fiddle::Pointer.malloc(33)
+      API::invoke :zmq_msg_init, @ptr
     end
+
+    # The memory pointer to the 0MQ message object. You shouldn't need
+    # to use this directly unless you're doing low-level work outside of
+    # the EZMQ interface.
+    # @return [Fiddler::Pointer]
+    # @raise [ContextClosed] if the context has already been destroyed
+    def ptr
+      @ptr or raise ContextClosed
+    end
+
 
   private
 

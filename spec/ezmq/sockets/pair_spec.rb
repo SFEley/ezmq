@@ -1,3 +1,5 @@
+require 'weakref'
+
 module EZMQ
   describe PAIR do
     it "defaults to the global context" do
@@ -124,26 +126,24 @@ module EZMQ
       end
     end
 
-    describe "sending" do
+    describe "sending", :pending do
       let(:other) {PAIR.new :bind => :inproc}
       before do
         subject.connect other
       end
 
       it "can send a single-part message" do
-        pending
         subject.send "Now is the time for all good men to come to the aid of their party!"
         other.receive.should eq "Now is the time for all good men to come to the aid of their party!"
       end
 
       it "can send a multi-part message" do
-        pending
         subject.send "Hello", "World!"
         expect(other.receive).to include "Hello", "World!"
       end
     end
 
-    describe "receiving" do
+    describe "receiving", :pending do
       let(:other) {PAIR.new :bind => :inproc}
       before do
         subject.connect other
@@ -151,16 +151,43 @@ module EZMQ
 
 
       it "can receive a single-part message" do
-        pending
         other.send "Now is the time for all good men to come to the aid of their party!"
         expect(subject.receive).to eq "Now is the time for all good men to come to the aid of their party!"
       end
 
       it "can receive a multi-part message" do
-        pending
         other.send "Hello", "World!"
         expect(subject.receive).to include "Hello", "World!"
       end
     end
+
+
+    describe "cleanup" do
+      before(:each) do
+        ObjectSpace.garbage_collect # Ensure pristine GC state every time
+      end
+
+      it "can close itself" do
+        expect(API).to receive(:zmq_close).at_least(:once).and_call_original
+        subject.close
+      end
+
+      it "closes its 0MQ socket if garbage collected" do
+        weakref, gc_counter = nil, 0
+        expect(API).to receive(:zmq_close).at_least(:once).and_call_original
+        begin
+          weakref = WeakRef.new(described_class.new)
+        end
+        EZMQ.terminate!
+        ObjectSpace.garbage_collect while weakref.weakref_alive? && (gc_counter += 1) < 10
+      end
+
+      it "returns a null pointer if cast after closing" do
+        subject.close
+        expect(subject.to_ptr).to be_null
+      end
+
+    end
+
   end
 end

@@ -16,16 +16,20 @@ module EZMQ
     extern 'int zmq_ctx_set (void*, int, int)'
     extern 'int zmq_ctx_destroy (void*)'
 
-    # # Socket functions
+    # Socket functions
     extern 'void* zmq_socket (void*, int)'
     extern 'int zmq_close(void*)'
     extern 'int zmq_bind (void*, const char*)'
     extern 'int zmq_connect (void*, const char*)'
     extern 'int zmq_getsockopt (void*, int, void*, size_t*)'
-
-    # # Message functions
     extern 'int zmq_send (void*, void*, size_t, int)'
     extern 'int zmq_recv (void*, void*, size_t, int)'
+
+    # Message functions
+    extern 'int zmq_msg_init (zmq_msg_t*)'
+
+    THING = import_symbol()
+
 
     # Info functions
     extern 'const char *zmq_strerror (int)'

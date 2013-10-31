@@ -51,7 +51,7 @@ module EZMQ
       ObjectSpace.define_finalizer self, @destroyer
     end
 
-    # The FFI memory pointer to the 0MQ context object. You shouldn't need
+    # The memory pointer to the 0MQ context object. You shouldn't need
     # to use this directly unless you're doing low-level work outside of
     # the EZMQ interface.
     # @return [FFI::Pointer]
@@ -117,6 +117,7 @@ module EZMQ
       @ptr = nil
     end
     alias_method :destroy, :terminate
+    alias_method :close, :terminate
 
 
     # Creates a routine that will safely close any sockets and terminate

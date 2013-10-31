@@ -72,6 +72,10 @@ module EZMQ
 
       bind *opts[:bind] if opts[:bind]
       connect *opts[:connect] if opts[:connect]
+
+      # Clean up if garbage collected
+      @destroyer = self.class.finalize(@ptr)
+      ObjectSpace.define_finalizer self, @destroyer
     end
 
     # Binds the socket to begin listening on one or more local endpoints.
@@ -273,10 +277,22 @@ module EZMQ
 
     # Closes this socket.
     def close
-      API::invoke :zmq_close, self
+      destroyer.call
+      @ptr = nil
     end
 
+    # Creates a routine that will set a timeout period on a given socket
+    # and then close it upon termination.
+    def self.finalize(ptr)
+      Proc.new do
+        API::zmq_close ptr
+      end
+    end
+
+
   private
+    attr_reader :destroyer
+
     def parse_for_binding(address)
       case address
       when :inproc then "inproc://#{name}"
