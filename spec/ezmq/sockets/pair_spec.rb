@@ -65,9 +65,11 @@ module EZMQ
 
       it "makes the socket wait that long when it closes" do
         EZMQ.linger = 300
-        start = Time.now
-        subject.send "Blocking while we wait to send this..."
-        expect {subject.close; Time.now}.to be_within(0.001).of (start + 0.3)
+        start = Time.now.to_f
+        subject.connect other = PAIR.new
+        other.send "Blocking while we wait to send this..."
+        subject.close
+        expect(Time.now.to_f).to be_within(0.001).of (start + 0.3)
       end
 
       after(:each) do
@@ -188,7 +190,7 @@ module EZMQ
       end
     end
 
-    describe "sending", :pending do
+    describe "sending" do
       let(:other) {PAIR.new :bind => :inproc}
       before do
         subject.connect other
@@ -196,12 +198,18 @@ module EZMQ
 
       it "can send a single-part message" do
         subject.send "Now is the time for all good men to come to the aid of their party!"
-        other.receive.should eq "Now is the time for all good men to come to the aid of their party!"
+        expect(other.receive size: 200).to eq "Now is the time for all good men to come to the aid of their party!"
       end
 
       it "can send a multi-part message" do
         subject.send "Hello", "World!"
-        expect(other.receive).to include "Hello", "World!"
+        expect(other.receive size: 6).to include "Hello", "World!"
+      end
+
+      it "can send a multi-part message across multiple calls" do
+        subject.send "Sweet antici...", more: true
+        subject.send "...pation!"
+        expect(other.receive size: 30).to eq "Sweet antici......pation!"
       end
     end
 
@@ -226,6 +234,7 @@ module EZMQ
 
     describe "cleanup" do
       before(:each) do
+        puts "GC before '#{example.description}'"
         ObjectSpace.garbage_collect # Ensure pristine GC state every time
       end
 

@@ -72,7 +72,7 @@ module EZMQ
         size_pointer = API::Pointer.malloc(API::SIZE_T_SIZE)
         size_pointer[0] = API::INT_SIZE
         API::invoke :zmq_getsockopt, self, Options[name], val_pointer, size_pointer
-        val_pointer.to_s(size_pointer[0].to_i).unpack('I').first
+        val_pointer.to_s(size_pointer[0].to_i).unpack('i').first
       end
     end
 
@@ -81,7 +81,7 @@ module EZMQ
     def self.set_option(name)
       define_method "#{name}=".to_sym do |val|
         val_pointer = API::Pointer.malloc(API::INT_SIZE)
-        val_pointer[0, API::INT_SIZE] = [val].pack('I')
+        val_pointer[0, API::INT_SIZE] = [val].pack('i')
         API::invoke :zmq_setsockopt, self, Options[name], val_pointer, API::INT_SIZE
         send name
       end

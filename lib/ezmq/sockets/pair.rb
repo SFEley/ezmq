@@ -210,13 +210,14 @@ module EZMQ
       return super if parts.first.is_a?(Symbol)
 
       if parts.last.respond_to?(:fetch)
-        opts = message.pop
+        opts = parts.pop
       end
 
       while part = parts.shift
-        ptr = API::Pointer.new :char, part.bytesize
-        ptr.put_bytes 0, part
-        API::invoke :zmq_send, self, ptr, part.bytesize, parts.empty? ? 0 : 1
+        size = part.bytesize
+        ptr = API::Pointer.malloc(size)
+        ptr[0, size] = part
+        API::invoke :zmq_send, self, ptr, size, parts.empty? ? 0 : 1
       end
     end
 
@@ -278,11 +279,11 @@ module EZMQ
     # @option opts [Boolean] :async If true, raises {EAGAIN} when a message is not yet available.
     # @option opts [Fixnum] :size If specified, capture the part in a fixed-size buffer and truncate it at the given byte limit.
     def receive_part(opts={})
-      if opts[:size]
+      # if opts[:size]
         recv opts[:size].to_i, opts[:async]
-      else
-        msg_recv opts[:async]
-      end
+      # else
+      #   msg_recv opts[:async]
+      # end
     end
 
 
@@ -339,9 +340,9 @@ module EZMQ
     end
 
     def recv(size, async)
-      ptr = FFI::MemoryPointer.new :char, size
-      API::invoke :zmq_recv, self, ptr, size, 0
-      ptr.read_string
+      ptr = API::Pointer.malloc size
+      received_size = API::invoke :zmq_recv, self, ptr, size, 0
+      ptr.to_s([size, received_size].min)
     end
 
     def msg_recv(async)
