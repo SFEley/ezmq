@@ -39,6 +39,9 @@ module EZMQ
     extern 'int zmq_msg_init_size (zmq_msg_t*, size_t)'
     extern 'size_t zmq_msg_size (zmq_msg_t*)'
     extern 'void* zmq_msg_data (zmq_msg_t*)'
+    extern 'int zmq_msg_copy (zmq_msg_t*, zmq_msg_t*)'
+    extern 'int zmq_msg_move (zmq_msg_t*, zmq_msg_t*)'
+    extern 'int zmq_msg_more (zmq_msg_t*)'
     extern 'int zmq_msg_close (zmq_msg_t*)'
 
     # Info functions

@@ -2,6 +2,8 @@ require 'weakref'
 
 module EZMQ
   describe MessageFrame do
+    let(:content) {"Now is the time for all good men to come to the aid of their party!"}
+
     describe "with no content or size" do
       it "calls zmq_msg_init on creation" do
         expect(API).to receive(:zmq_msg_init).and_call_original
@@ -33,6 +35,9 @@ module EZMQ
         expect {subject[0] = '?'}.to raise_error(IndexError)
       end
 
+      it "knows there are no more messages" do
+        expect(subject).not_to be_more
+      end
     end
 
     describe "with a declared buffer size" do
@@ -90,7 +95,6 @@ module EZMQ
     end
 
     describe "with provided content" do
-      let(:content) {"Now is the time for all good men to come to the aid of their party!"}
       subject {described_class.new content}
 
       it "calls msg_init_size on creation" do
@@ -117,6 +121,48 @@ module EZMQ
       it "can overwrite the buffer" do
         subject.data = "The quick brown fox jumped over the lazy dog."
         expect(subject.to_s).to eq "The quick brown fox jumped over the lazy dog.he aid of their party!"
+      end
+
+    end
+
+    describe "copying and moving" do
+      let(:this) {described_class.new content}
+      let(:that) {described_class.new}
+
+      it "can copy TO another frame" do
+        this.copy_to(that)
+        expect(this.data).to eq content
+        expect(that.data).to eq content
+      end
+
+      it "can copy FROM another frame" do
+        that.copy_from(this)
+        expect(this.data).to eq content
+        expect(that.data).to eq content
+      end
+
+      it "copies when cloned" do
+        other = this.clone
+        expect(this.data).to eq content
+        expect(other.data).to eq content
+      end
+
+      it "copies when duped" do
+        other = this.dup
+        expect(this.data).to eq content
+        expect(other.data).to eq content
+      end
+
+      it "can move TO another frame" do
+        this.move_to(that)
+        expect(this.data).to be_empty
+        expect(that.data).to eq content
+      end
+
+      it "can move FROM another frame" do
+        that.move_from(this)
+        expect(this.data).to be_empty
+        expect(that.data).to eq content
       end
 
     end

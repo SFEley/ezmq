@@ -166,6 +166,60 @@ module EZMQ
       val
     end
 
+    # True if this is a received message part and there are more to follow.
+    def more?
+      API::invoke(:zmq_msg_more, self) > 0
+    end
+
+
+    # Tells 0MQ to set the target {MessageFrame} to have the same contents
+    # as this one. Both objects may point to the same buffer in memory (but
+    # this is not guaranteed). If the other frame already had data, that
+    # buffer will be released.
+    # @param [MessageFrame] target
+    # @return [MessageFrame] The target object
+    def copy_to(target)
+      API::invoke :zmq_msg_copy, target, self
+      target
+    end
+
+
+    # Tells 0MQ to get new contents from the source {MessageFrame}. Both
+    # objects may point to the same buffer in memory (but this is not
+    # guaranteed). If this object already had data, that buffer
+    # will be released.
+    # @param [MessageFrame] source
+    # @return [MessageFrame] self
+    def copy_from(source)
+      API::invoke :zmq_msg_copy, self, source
+      self
+    end
+
+    # Tells 0MQ to transfer this object's contents to the target {MessageFrame}.
+    # This object will become an empty frame.
+    # @param [MessageFrame] target
+    # @return [MessageFrame] The target object
+    def move_to(target)
+      API::invoke :zmq_msg_move, target, self
+      target
+    end
+
+    # Tells 0MQ to transfer contents from the source {MessageFrame} to this
+    # one. The source object will become an empty frame.
+    # @param [MessageFrame] source
+    # @return [MessageFrame] self
+    def move_from(source)
+      API::invoke :zmq_msg_move, self, source
+      self
+    end
+
+    # @private
+    def initialize_copy(other)
+      initialize
+      copy_from other
+    end
+
+
     # Tells 0MQ that this object is no longer required.
     # Attempting to access the MessageFrame after this will throw an exception.
     # @note This also occurs when the Context object is garbage collected.
