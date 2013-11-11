@@ -234,7 +234,6 @@ module EZMQ
 
     describe "cleanup" do
       before(:each) do
-        puts "GC before '#{example.description}'"
         ObjectSpace.garbage_collect # Ensure pristine GC state every time
       end
 

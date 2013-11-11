@@ -14,9 +14,8 @@ module EZMQ
   # 2. The easiest way to populate a {MessageFrame} with data to send is to
   #    pass the data (as a string of any encoding) on initializing.
   # 3. If you pass an integer instead, an empty buffer of the given size
-  #    will be created. You can then add content to the buffer
-  #    incrementally with the {#<<} operator or at any offset with the
-  #    {#[]=} operator.
+  #    will be created. You can then add content to the buffer with the
+  #    {#data=} method or at any offset with the {#[]=} operator.
   # 4. Initializing with no string or integer will create an "empty"
   #    {MessageFrame}. This is ideal for receiving, and you can copy or
   #    move data into it from _other_ {MessageFrame}s, but you will not
@@ -47,25 +46,151 @@ module EZMQ
   class MessageFrame
 
     # @overload initialize()
-    #   Creates and initializes an empty 0MQ message structure. This is
-    #   primarily useful as a container for receiving messages of arbitrary
-    #   length.
-    def initialize
-      # @ptr = API::Pointer.malloc(33)
-      # API::invoke :zmq_msg_init, @ptr
+    #   Creates and initializes an empty 0MQ message structure with no
+    #   set size. This is primarily useful as a container for receiving
+    #   messages of arbitrary length.
+    # @overload initialize(size)
+    #   Creates and initializes an empty 0MQ message structure with a buffer
+    #   of the given size. This can be filled with data in subsequent calls.
+    #   @param [Fixnum] val Maximum size of content that can be handled.
+    # @overload initialize(content)
+    #   Creates and initializes a 0MQ message structure with a buffer
+    #   containing the given string.
+    #   @param [String] val String to be delivered.
+    def initialize(val=nil)
+
+      @ptr = API::Pointer.malloc(32)
+      case val
+      when nil
+        API::invoke :zmq_msg_init, @ptr
+      when Fixnum
+        API::invoke :zmq_msg_init_size, @ptr, val
+      when String
+        API::invoke :zmq_msg_init_size, @ptr, val.bytesize
+        self.data = val
+      end
+
+      # Clean up if garbage collected
+      @destroyer = self.class.finalize(@ptr)
+      ObjectSpace.define_finalizer self, @destroyer
     end
 
     # The memory pointer to the 0MQ message object. You shouldn't need
     # to use this directly unless you're doing low-level work outside of
     # the EZMQ interface.
-    # @return [Fiddler::Pointer]
-    # @raise [ContextClosed] if the context has already been destroyed
+    # @return [API::Pointer]
+    # @raise [MessageFrameClosed] if this message structure has already been freed
     def ptr
-      @ptr or raise ContextClosed
+      @ptr or raise MessageFrameClosed
     end
 
+    # The memory pointer to the 0MQ message object. Differs from the
+    # #ptr method in that it returns a null pointer if the context has
+    # been destroyed rather than throwing an exception. Enables API
+    # functions to accept this object wherever a context pointer would
+    # be needed.
+    # @return [API::Pointer]
+    def to_ptr
+      ptr
+    rescue MessageFrameClosed
+      API::NULL
+    end
+
+    # The length in bytes of the message content in memory. This value
+    # is always retrieved from the `zmq_msg_size` 0MQ API call, so it
+    # should remain accurate across buffer reallocations, etc.
+    # @return [Fixnum]
+    def size
+      API::invoke :zmq_msg_size, self
+    end
+
+    # The content of the message buffer as known to 0MQ. This is a binary
+    # encoded string of exactly {#size} bytes. Allocated buffers without
+    # content will contain null bytes or garbage.
+    # @return [String]
+    # @see #[] if you want a subset of the data
+    # @see #to_s if you want to treat the contents as text
+    def data
+      content_ptr.to_s(size)
+    end
+    alias_method :to_s, :data
+
+
+    # Sets the content of the message buffer up to the allocated {#size}
+    # or the length of the given string (whichever is less). Attempts to
+    # set data beyond the allocated size will silently fail.
+    # @return [String] The new contents of the data buffer
+    def data=(val)
+      if (val_size = val.bytesize) < (buffer_size = size)  # Reduce duplicate calls
+        content_ptr[0, val_size] = val
+      else
+        content_ptr[0, buffer_size] = val.byteslice(0, buffer_size)
+      end
+      data
+    end
+
+    # The content of the message buffer from the given offset up to the given
+    # length (or the end of the buffer allocation). If no length is given,
+    # a single byte will be returned. An offset beyond the end of the
+    # buffer will raise an exception.
+    # @param [Fixnum] offset Starting byte of slice with 0 as the first byte
+    # @param [Fixnum] length Number of bytes to return (defaults to 1)
+    # @return [String]
+    # @raise [IndexError] if the offset runs beyond the end of the buffer
+    # @see #data
+    def [](offset, length=1)
+      if offset >= (buffer_size = size)
+        raise IndexError, "Offset #{offset} exceeds frame size (#{buffer_size})"
+      end
+      bounded_length = [length, buffer_size - offset].min
+      content_ptr[offset, bounded_length]
+    end
+
+    # Sets the content of the message buffer from the given offset up to the
+    # given length, the length of the provided string in bytes, or the end
+    # of the buffer allocation (whichever is less). An offset beyond the
+    # end of the buffer will raise an exception.
+    # @param [Fixnum] offset Starting byte of slice with 0 as the first byte
+    # @param [Fixnum] length Number of bytes to pull from the provided string (default is string length)
+    # @return [String] The substituted part of the string
+    # @raise [IndexError] if the offset runs beyond the end of the buffer
+    # @see #data=
+    def []=(offset, length=nil, val)
+      if offset >= (buffer_size = size)
+        raise IndexError, "Offset #{offset} exceeds frame size (#{buffer_size})"
+      end
+      val_size, rest_of_buffer = val.bytesize, (buffer_size - offset)
+      bounded_length = [val_size, rest_of_buffer, length || val_size].min
+      val = val.byteslice(0, bounded_length) if bounded_length < val_size
+      content_ptr[offset, bounded_length] = val
+      val
+    end
+
+    # Tells 0MQ that this object is no longer required.
+    # Attempting to access the MessageFrame after this will throw an exception.
+    # @note This also occurs when the Context object is garbage collected.
+    def close
+      destroyer.call
+      @ptr = nil
+    end
+    alias_method :destroy, :close
+    alias_method :terminate, :close
+
+
+    # Creates a routine that will safely close any sockets and terminate
+    # the 0MQ context upon garbage collection.
+    def self.finalize(ptr)
+      Proc.new do
+        API::invoke :zmq_msg_close, ptr
+      end
+    end
 
   private
+    attr_reader :destroyer
+
+    def content_ptr
+      API::invoke :zmq_msg_data, self
+    end
 
 
   end

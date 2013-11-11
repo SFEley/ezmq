@@ -1,8 +1,151 @@
+require 'weakref'
+
 module EZMQ
   describe MessageFrame do
-    it "calls zmq_msg_init on creation if no content or size are given" do
-      expect(API).to receive(:zmq_msg_init)
-      described_class.new
+    describe "with no content or size" do
+      it "calls zmq_msg_init on creation" do
+        expect(API).to receive(:zmq_msg_init).and_call_original
+        subject
+      end
+
+      it "has no size yet" do
+        expect(subject.size).to eq 0
+      end
+
+      it "has no string value yet" do
+        expect(subject.to_s).to eq ''
+      end
+
+      it "has no data yet" do
+        expect(subject.data).to eq ''
+      end
+
+      it "can't set any content" do
+        subject.data = 'Testing...'
+        expect(subject.to_s).to eq ''
+      end
+
+      it "can't read anything by offset" do
+        expect {subject[0]}.to raise_error(IndexError)
+      end
+
+      it "can't set anything by offset" do
+        expect {subject[0] = '?'}.to raise_error(IndexError)
+      end
+
+    end
+
+    describe "with a declared buffer size" do
+      subject {described_class.new 10}
+
+      it "calls msg_init_size on creation" do
+        expect(API).to receive(:zmq_msg_init_size).and_call_original
+        subject
+      end
+
+      it "knows its size" do
+        expect(subject.size).to eq 10
+      end
+
+      it "has garbage in its data buffer" do
+        expect(subject.data).to have(10).bytes
+      end
+
+      it "can set data up to the buffer size" do
+        subject.data = "antidisestablishmentarianism"
+        expect(subject.to_s).to eq 'antidisest'
+      end
+
+      it "can read up to its offset" do
+        expect(subject[2, 15]).to eq subject.data[2, 8]
+      end
+
+      it "can set by offset" do
+        subject[4] = "Garbanzo"
+        expect(subject.data).to match /^....Garban$/
+      end
+
+      it "can't read beyond its offset" do
+        expect {subject[11]}.to raise_error(IndexError)
+      end
+
+      it "can read a substring" do
+        subject[2] = "London Bridge"
+        expect(subject[3, 4]).to eq 'ondo'
+      end
+
+      it "can't set beyond its offset" do
+        expect {subject[11] = '?'}.to raise_error(IndexError)
+      end
+
+      it "can set from a substring" do
+        subject[3, 4] = "DingDong"
+        expect(subject.data).to match /^...Ding(?!Dong)/
+      end
+
+      it "sets from the whole value if no length is given" do
+        subject[3] = "Thing"
+        expect(subject.data).to match /^...Thing..$/
+      end
+    end
+
+    describe "with provided content" do
+      let(:content) {"Now is the time for all good men to come to the aid of their party!"}
+      subject {described_class.new content}
+
+      it "calls msg_init_size on creation" do
+        expect(API).to receive(:zmq_msg_init_size).and_call_original
+        subject
+      end
+
+      it "knows its size from what is given" do
+        expect(subject.size).to eq 67
+      end
+
+      it "knows its string value" do
+        expect(subject.to_s).to eq content
+      end
+
+      it "treats the content as binary encoded" do
+        expect(subject.to_s.encoding).to eq Encoding::ASCII_8BIT
+      end
+
+      it "sees no difference between the string value and the data buffer" do
+        expect(subject.data).to eq "#{subject}"
+      end
+
+      it "can overwrite the buffer" do
+        subject.data = "The quick brown fox jumped over the lazy dog."
+        expect(subject.to_s).to eq "The quick brown fox jumped over the lazy dog.he aid of their party!"
+      end
+
+    end
+
+    describe "cleanup" do
+
+      before(:each) do
+        ObjectSpace.garbage_collect # Ensure pristine GC state every time
+      end
+
+      it "can close itself" do
+        expect(API).to receive(:zmq_msg_close).at_least(:once).and_call_original
+        subject.close
+      end
+
+      it "closes itself if garbage collected" do
+        weakref, gc_counter = nil, 0
+        expect(API).to receive(:zmq_msg_close).at_least(:once).and_call_original
+        begin
+          weakref = WeakRef.new(described_class.new)
+        end
+        ObjectSpace.garbage_collect while weakref.weakref_alive? && (gc_counter += 1) < 10
+      end
+
+      it "returns a null pointer if cast after closing" do
+        subject.close
+        expect(subject.to_ptr).to be_null
+      end
+
     end
 
   end

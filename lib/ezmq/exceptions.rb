@@ -23,6 +23,9 @@ module EZMQ
   # Raised on attempts to use a Socket object after it's been destroyed.
   class SocketClosed < EZMQError; end
 
+  # Raised on attempts to use a MessageFrame object after it's been destroyed.
+  class MessageFrameClosed < EZMQError; end
+
   # Raised when a bad address is given for binding or connecting.
   class InvalidEndpoint < EZMQError
     # @param endpoint [Object] The endpoint that wasn't valid.

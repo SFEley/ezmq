@@ -96,7 +96,9 @@ module EZMQ
       ObjectSpace.define_finalizer self, @destroyer
 
       # Set linger value
-      if EZMQ.linger
+      if self.class.linger
+        self.linger = self.class.linger
+      elsif EZMQ.linger
         self.linger = EZMQ.linger
       end
     end
