@@ -66,7 +66,7 @@ module EZMQ
 
     # @api private
     # Sets up a retrievable socket option as a reader attribute.
-    def self.get_option(name)
+    def self.get_option(name, *aliases)
       define_method name do
         val_pointer = API::Pointer.malloc(API::INT_SIZE)
         size_pointer = API::Pointer.malloc(API::SIZE_T_SIZE)
@@ -74,25 +74,27 @@ module EZMQ
         API::invoke :zmq_getsockopt, self, Options[name], val_pointer, size_pointer
         val_pointer.to_s(size_pointer[0].to_i).unpack('i').first
       end
+      aliases.each {|a| alias_method a, name}
     end
 
     # @api private
     # Sets up a settable socket option as a writer attribute.
-    def self.set_option(name)
+    def self.set_option(name, *aliases)
       define_method "#{name}=".to_sym do |val|
         val_pointer = API::Pointer.malloc(API::INT_SIZE)
         val_pointer[0, API::INT_SIZE] = [val].pack('i')
         API::invoke :zmq_setsockopt, self, Options[name], val_pointer, API::INT_SIZE
         send name
       end
+      aliases.each {|a| alias_method "#{a}=".to_sym, "#{name}=".to_sym}
     end
 
     # @api private
     # Establishes reader and writer methods for socket options, as well as
     # for any aliases they might travel under.
-    def self.socket_option(name)
-      get_option(name)
-      set_option(name)
+    def self.socket_option(name, *aliases)
+      get_option(name, *aliases)
+      set_option(name, *aliases)
     end
 
     # From include/zmq.h

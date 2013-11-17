@@ -48,6 +48,41 @@ module EZMQ
     #   if defined (1 second unless overridden), or to -1.
     socket_option :linger
 
+    # @!attribute [r] rcvmore
+    #   1 if the socket currently has more parts of a multi-part message
+    #   waiting to be processed; 0 otherwise. The {#more?} method casts
+    #   this to a boolean.
+    get_option :rcvmore
+
+    # @!attribute [rw] send_limit
+    #   The high water mark for outbound messages. This is a hard limit on
+    #   the maximum number of outstanding messages that can be queued for
+    #   any single peer. Changes to this value will only take effect for
+    #   *new* socket connections. Defaults to 1000.
+    socket_option :sndhwm, :send_limit
+
+    # @!attribute [rw] receive_limit
+    #   The high water mark for inbound messages. This is a hard limit on
+    #   the maximum number of received messages that can be queued from
+    #   any single peer. Changes to this value will only take effect for
+    #   *new* socket connections. Defaults to 1000.
+    socket_option :rcvhwm, :receive_limit
+
+    # @!attribute [rw] send_timeout
+    #   If set to a positive value, send operations will time out with an {EAGAIN}
+    #   exception after that many milliseconds if the message cannot be sent.
+    #   If set to 0, the socket will always raise {EAGAIN} if the message
+    #   cannot be sent immediately. If set to -1, the socket will block
+    #   indefinitely until the message can be sent. Defaults to -1.
+    socket_option :sndtimeo, :send_timeout
+
+    # @!attribute [rw] receive_timeout
+    #   If set to a positive value, receive operations will time out with an {EAGAIN}
+    #   exception after that milliseconds if there are no messages to receive.
+    #   If set to 0, the socket will always raise {EAGAIN} if there are no
+    #   messages waiting. If set to -1, the socket will block indefinitely
+    #   until a message is received. Default to -1.
+    socket_option :rcvtimeo, :receive_timeout
 
 
     # The memory pointer to the 0MQ socket object. You shouldn't need
@@ -213,15 +248,38 @@ module EZMQ
 
       if parts.last.respond_to?(:fetch)
         opts = parts.pop
+      else
+        opts = {}
       end
 
       while part = parts.shift
         size = part.bytesize
-        ptr = API::Pointer.malloc(size)
-        ptr[0, size] = part
-        API::invoke :zmq_send, self, ptr, size, parts.empty? ? 0 : 1
+        content_ptr = API::Pointer.malloc(size)
+        content_ptr[0, size] = part
+        flags = 0
+        flags += 1 if opts[:async]
+        flags += 2 if !parts.empty? || opts[:more]
+        API::invoke :zmq_send, self, content_ptr, size, flags
       end
     end
+
+    # Sends the message content from a {MessageFrame} object, clearing its
+    # contents after transmission. This is considered an advanced feature, making
+    # use of the more complex `zmq_msg_send` API. Users who don't have
+    # complex memory or routing requirements are encouraged to use the
+    # {#send} method instead.
+    # @param [MessageFrame] frame
+    # @param [Hash, optional] opts
+    # @option opts [Boolean] :more If true, don't send immediately; wait for additional parts.
+    # @option opts [Boolean] :async If true, raises {EAGAIN} when a message temporarily can't be sent.
+    # @return [Fixnum] The number of bytes sent from the frame.
+    def send_from_frame(frame, opts={})
+      flags = 0
+      flags += 1 if opts[:async]
+      flags += 2 if opts[:more]
+      API::invoke :zmq_msg_send, frame, self, flags
+    end
+
 
     # Receives a message from the socket. The return is a {Message} object
     # containing one or more parts, which duck types reasonably well to a
@@ -244,11 +302,16 @@ module EZMQ
     # of that size or smaller will be unaffected.
 
     #
-    # @param opts [Hash, optional] Options for non-blocking and size limits.
+    # @param [Hash, optional] opts
     # @option opts [Boolean] :async If true, raises {EAGAIN} when a message is not yet available.
+    # @option opts [Fixnum] :size If specified, each message part is captured in a fixed-size buffer and truncated at the given byte limit.
     # @return [Message]
     def receive(opts={})
-      receive_part opts
+      message = Message.new receive_part(opts)
+      while more?
+        message << receive_part(opts)
+      end
+      message
     end
 
     # Gets a single message part from the socket. There may or may not be
@@ -277,18 +340,40 @@ module EZMQ
     # incrementally, it *usually* makes more sense to use the {#receive}
     # method to get all parts at once.
     #
-    # @param opts [Hash, optional] Options for non-blocking and size limits.
+    # @param [Hash, optional] opts
     # @option opts [Boolean] :async If true, raises {EAGAIN} when a message is not yet available.
     # @option opts [Fixnum] :size If specified, capture the part in a fixed-size buffer and truncate it at the given byte limit.
+    # @return [String] Received message data with binary encoding.
     def receive_part(opts={})
-      # if opts[:size]
-        recv opts[:size].to_i, opts[:async]
-      # else
-      #   msg_recv opts[:async]
-      # end
+      if size = opts[:size]
+        ptr = API::Pointer.malloc size
+        received_size = API::invoke :zmq_recv, self, ptr, size, 0
+        ptr.to_s([size, received_size].min)
+      else
+        receive_into_frame(receive_frame, opts)
+        receive_frame.to_s
+      end
+    end
+
+    # Receives a message part into a {MessageFrame} object, clearing any
+    # existing contents. This is considered an advanced feature, making
+    # use of the more complex `zmq_msg_recv` API. Users who don't have
+    # complex memory or routing requirements are encouraged to use the
+    # {#receive} method instead.
+    # @param [MessageFrame] frame
+    # @param [Hash, optional] opts
+    # @option opts [Boolean] :async (false) If true, raises {EAGAIN} when a message is not yet available.
+    # @return [Fixnum] The number of bytes received into the frame.
+    def receive_into_frame(frame, opts={})
+      API::invoke :zmq_msg_recv, frame, self, (opts[:async] ? 1: 0)
     end
 
 
+    # True if the socket currently has more parts of a multi-part message
+    # waiting to be processed; otherwise false.
+    def more?
+      rcvmore == 1
+    end
 
     # Returns the most recently bound address that this socket is listening
     # to from 0MQ.
@@ -319,6 +404,10 @@ module EZMQ
   private
     attr_reader :destroyer
 
+    def receive_frame
+      @receive_frame ||= MessageFrame.new
+    end
+
     def parse_for_binding(address)
       case address
       when :inproc then "inproc://#{name}"
@@ -345,10 +434,6 @@ module EZMQ
       ptr = API::Pointer.malloc size
       received_size = API::invoke :zmq_recv, self, ptr, size, 0
       ptr.to_s([size, received_size].min)
-    end
-
-    def msg_recv(async)
-      msg = MessageFrame.new
     end
 
   end

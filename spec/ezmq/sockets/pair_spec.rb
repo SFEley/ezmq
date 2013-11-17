@@ -35,6 +35,7 @@ module EZMQ
       expect(subject.send :instance_of?, Socket).to be_false
     end
 
+
     describe "lingering" do
       before(:all) do
         @global_linger = EZMQ.linger
@@ -63,15 +64,6 @@ module EZMQ
         expect(subject.linger).to eq 50
       end
 
-      it "makes the socket wait that long when it closes" do
-        EZMQ.linger = 300
-        start = Time.now.to_f
-        subject.connect other = PAIR.new
-        other.send "Blocking while we wait to send this..."
-        subject.close
-        expect(Time.now.to_f).to be_within(0.001).of (start + 0.3)
-      end
-
       after(:each) do
         EZMQ.linger = @global_linger
         described_class.linger = @class_linger
@@ -79,17 +71,29 @@ module EZMQ
     end
 
     describe "options" do
-
-      it "defaults ot eh"
-
       it "can get and set the backlog" do
         expect(subject.backlog).to eq 100
         expect {subject.backlog = 300}.to change {subject.backlog}.by 200
       end
 
       it "can get and set the sending high-water mark" do
-        expect(subject.sndhwm).to eq 1000
-        expect {subject.sndhwm = 500}.to change {subject.sndhwm}.by 500
+        expect(subject.send_limit).to eq 1000
+        expect {subject.send_limit = 500}.to change {subject.send_limit}.by -500
+      end
+
+      it "can get and set the receiving high-water mark" do
+        expect(subject.receive_limit).to eq 1000
+        expect {subject.receive_limit = 500}.to change {subject.receive_limit}.by -500
+      end
+
+      it "can get and set the send timeout" do
+        expect(subject.send_timeout).to eq -1
+        expect {subject.send_timeout = 2000}.to change {subject.send_timeout}.by 2001
+      end
+
+      it "can get and set the receive timeout" do
+        expect(subject.receive_timeout).to eq -1
+        expect {subject.receive_timeout = 2000}.to change {subject.receive_timeout}.by 2001
       end
     end
 
@@ -190,47 +194,80 @@ module EZMQ
       end
     end
 
-    describe "sending" do
+    context "message delivery" do
       let(:other) {PAIR.new :bind => :inproc}
+      let(:single) {"Now is the time for all good men to come to the aid of their party!"}
+      let(:multi) {%w[Hello World!]}
       before do
         subject.connect other
+        subject.send_timeout = 1000   # So failures don't block the spec run
+        subject.receive_timeout = 1000
       end
 
-      it "can send a single-part message" do
-        subject.send "Now is the time for all good men to come to the aid of their party!"
-        expect(other.receive size: 200).to eq "Now is the time for all good men to come to the aid of their party!"
+      describe "sending" do
+        it "can send a single-part message" do
+          subject.send single
+          expect(other.receive).to eq single
+        end
+
+        it "can send a multi-part message" do
+          subject.send *multi
+          expect(other.receive).to include "Hello", "World!"
+        end
+
+        it "can send a multi-part message across multiple calls" do
+          subject.send multi[0], more: true
+          subject.send multi[1]
+          expect(other.receive).to eq "HelloWorld!"
+        end
+
+        it "can send into a message frame" do
+          frame = MessageFrame.new single
+          subject.send_from_frame(frame)
+          expect(other.receive).to eq single
+        end
+
       end
 
-      it "can send a multi-part message" do
-        subject.send "Hello", "World!"
-        expect(other.receive size: 6).to include "Hello", "World!"
-      end
+      describe "receiving" do
+        it "can receive a single-part message" do
+          other.send single
+          expect(subject.receive).to eq single
+        end
 
-      it "can send a multi-part message across multiple calls" do
-        subject.send "Sweet antici...", more: true
-        subject.send "...pation!"
-        expect(other.receive size: 30).to eq "Sweet antici......pation!"
+        it "can receive a multi-part message" do
+          other.send *multi
+          expect(subject.receive).to include "Hello", "World!"
+        end
+
+        it "can receive a multi-part message across multiple calls" do
+          other.send *multi
+          expect(subject.receive_part).to eq "Hello"
+          expect(subject.receive_part).to eq "World!"
+        end
+
+        it "knows when there are more message parts" do
+          other.send *multi
+          expect(subject).not_to be_more
+          subject.receive_part
+          expect(subject).to be_more
+          subject.receive_part
+          expect(subject).not_to be_more
+        end
+
+        it "truncates when given a size" do
+          other.send single
+          expect(subject.receive size: 10).to eq "Now is the"
+        end
+
+        it "can receive into a message frame" do
+          frame = MessageFrame.new
+          other.send single
+          subject.receive_into_frame(frame)
+          expect(frame.to_s).to eq single
+        end
       end
     end
-
-    describe "receiving", :pending do
-      let(:other) {PAIR.new :bind => :inproc}
-      before do
-        subject.connect other
-      end
-
-
-      it "can receive a single-part message" do
-        other.send "Now is the time for all good men to come to the aid of their party!"
-        expect(subject.receive).to eq "Now is the time for all good men to come to the aid of their party!"
-      end
-
-      it "can receive a multi-part message" do
-        other.send "Hello", "World!"
-        expect(subject.receive).to include "Hello", "World!"
-      end
-    end
-
 
     describe "cleanup" do
       before(:each) do
