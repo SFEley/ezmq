@@ -1,14 +1,14 @@
 require 'ezmq/api'
+require 'ezmq/loggable'
 
 module EZMQ
   # A global 0MQ context that acts as the default container for all
-  # sockets. The Context object is created lazily (i.e., only when it is
-  # referenced for the first time) and safely for multiple threads.
-  # Unless you have a good reason for multiple contexts you should be
-  # using this placeholder, which will never be accidentally garbage
-  # collected.
+  # sockets. The Context object is created when it is referenced for the
+  # first time. Unless you have a good reason for multiple contexts you
+  # should be using this placeholder, which will never be accidentally
+  # garbage collected.
   def self.context
-    @context or Thread.exclusive {@context ||= Context.new}
+    @context ||= Context.new
   end
 
   # Closes every socket on the global context and then removes the context
@@ -26,6 +26,7 @@ module EZMQ
   end
 
   class Context
+    include Loggable
 
     # From include/zmq.h
     Options = {

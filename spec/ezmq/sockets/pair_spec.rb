@@ -1,13 +1,9 @@
-require 'weakref'
+require 'ezmq/sockets/socket_shared'
 
 module EZMQ
-  describe EZMQ do
-    it "has a global linger value by default" do
-      expect(EZMQ.linger).to be > 0
-    end
-  end
-
   describe PAIR do
+
+    it_behaves_like "every socket"
     it "defaults to the global context" do
       expect(subject.context).to eq EZMQ.context
     end
@@ -33,6 +29,10 @@ module EZMQ
     it "falls back to Ruby #send when given a symbol" do
       expect(subject.send :kind_of?, Socket).to be_true
       expect(subject.send :instance_of?, Socket).to be_false
+    end
+
+    describe "pair creation" do
+      pending
     end
 
 

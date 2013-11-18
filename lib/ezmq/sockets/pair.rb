@@ -120,7 +120,7 @@ module EZMQ
       @context = opts.fetch(:context) {EZMQ.context}
       @name = opts.fetch(:name) {nextname}
 
-      @ptr = API::zmq_socket context, self.class
+      @ptr = API::invoke :zmq_socket, context, self.class
       context << self
 
       bind *opts[:bind] if opts[:bind]

@@ -2,7 +2,7 @@ module EZMQ
 
   # Which dynamic loading library we use (DL or Fiddle) and parts of how we
   # use it depend on the Ruby version. *DO NOT* require more than one of
-  # these adapter methods. You'll confuse the poor thing.
+  # these adapter modules. You'll confuse the poor thing.
   case RUBY_VERSION
   when /^2\./ then require 'ezmq/api/mri_2_0'
   else raise "Unknown ruby version!"
