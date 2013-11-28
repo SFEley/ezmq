@@ -31,21 +31,45 @@ module EZMQ
       expect(subject.send :instance_of?, Socket).to be_false
     end
 
+    it "can set options on initialization" do
+      this = described_class.new backlog: 17
+      expect(this.backlog).to eq 17
+    end
+
     describe "pair creation" do
-      pending
+
+      it "creates two sockets" do
+        expect(described_class.new_pair).to have(2).sockets
+      end
+
+      it "passes options to both sockets" do
+        left, right = described_class.new_pair linger: 500
+        expect(left.linger).to eq 500
+        expect(right.linger).to eq 500
+      end
+
+      it "gives the :left and :right names to the sockets" do
+        left, right = described_class.new_pair left: 'ThingOne', right: 'ThingTwo'
+        expect(left.name).to eq 'ThingOne'
+        expect(right.name).to eq 'ThingTwo'
+      end
+
+      it "binds the left socket" do
+        left, right = described_class.new_pair
+        expect(left.endpoints).to include "inproc://#{left.name}"
+      end
+
+      it "connects the right socket" do
+        left, right = described_class.new_pair
+        expect(right.connections).to include "inproc://#{left.name}"
+      end
+
     end
 
 
     describe "lingering" do
       before(:all) do
         @global_linger = EZMQ.linger
-        @class_linger = described_class.linger
-      end
-
-      it "defaults to the socket class value if given" do
-        EZMQ.linger = 645
-        described_class.linger = 700
-        expect(subject.linger).to eq 700
       end
 
       it "defaults to the global EZMQ value if given" do
@@ -53,9 +77,13 @@ module EZMQ
         expect(subject.linger).to eq 1900
       end
 
-      it "defaults to infinite if neither the class nor EZMQ have better ideas" do
+      it "takes the initialization value if given" do
+        this = described_class.new linger: 50
+        expect(this.linger).to eq 50
+      end
+
+      it "defaults to infinite if not given by an option nor global value" do
         EZMQ.linger = nil
-        described_class.linger = nil
         expect(subject.linger).to eq -1
       end
 
@@ -66,7 +94,6 @@ module EZMQ
 
       after(:each) do
         EZMQ.linger = @global_linger
-        described_class.linger = @class_linger
       end
     end
 
@@ -270,6 +297,10 @@ module EZMQ
     end
 
     describe "cleanup" do
+      before(:all) do
+        puts "    Linger: #{EZMQ.linger}"
+      end
+
       before(:each) do
         ObjectSpace.garbage_collect # Ensure pristine GC state every time
       end

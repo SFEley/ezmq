@@ -48,15 +48,6 @@ module EZMQ
       self.class.type
     end
 
-    class << self
-      # The default `ZMQ_LINGER` socket value for new sockets of this class.
-      # Undefined by default, so the global `EZMQ.linger` value will be used
-      # instead.
-      # @see Socket#linger
-      attr_accessor :linger
-    end
-
-
     # Returns the type number corresponding to this socket class.
     # Allows the class constant to be used as an integer value for the
     # 0MQ C API.

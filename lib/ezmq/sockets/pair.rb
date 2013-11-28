@@ -17,6 +17,33 @@ module EZMQ
   # @see http://api.zeromq.org/3-2:zmq-socket
   #
   class PAIR < Socket
+
+    # Returns a two-element array of {PAIR} sockets that are already
+    # connected via _inproc_ transport.  The `:name`, `:bind` and `:connect`
+    # options are ignored; all other options are applied to both sockets on
+    # initialization.
+    #
+    # @option opts [String] :left Name of the first socket (and also the _inproc_ binding)
+    # @option opts [String] :right Name of the second socket
+    #
+    # @example
+    #   left, right = EZMQ::PAIR.new_pair
+    #   left.send "Mr. Watson, come here. I want to see you."
+    #   right.receive   # => "Mr. Watson, come here. I want to see you."
+    def self.new_pair(opts={})
+      leftopts = opts.reject {|k, v| [:name, :bind, :connect, :left, :right].include?(k)}
+      rightopts = leftopts.dup
+
+      leftopts[:name] = opts[:left] if opts[:left]
+      rightopts[:name] = opts[:right] if opts[:right]
+
+      left, right = new(leftopts), new(rightopts)
+      left.bind :inproc
+      right.connect left.last_endpoint
+      [left, right]
+    end
+
+
     # The parent context in which this socket was created. Defaults to
     # the global EXMQ::context for the application.
     attr_reader :context
@@ -44,8 +71,8 @@ module EZMQ
     #   the socket will always close immediately, discarding pending
     #   messages. A value of -1 means that the socket will wait forever
     #   for messages to be delivered before closing. Defaults to the
-    #   value of the class attribute if one is defined, or to `EZMQ.linger`
-    #   if defined (1 second unless overridden), or to -1.
+    #   value of `EZMQ.linger` if defined (1 second unless overridden),
+    #   or to -1.
     socket_option :linger
 
     # @!attribute [r] rcvmore
@@ -108,7 +135,7 @@ module EZMQ
 
 
     # Creates a new Socket wrapping a 0MQ socket structure. By default
-    # this socket uses the global context (EZMQ::context) and does not
+    # this socket uses the global context ({EZMQ.context}) and does not
     # begin life bound to any interfaces or connected to any other 0MQ
     # sockets, but you can customize this with options.
     # @option opts [Context] :context The socket's 0MQ context; defaults to EZMQ::context
@@ -130,12 +157,14 @@ module EZMQ
       @destroyer = self.class.finalize(@ptr)
       ObjectSpace.define_finalizer self, @destroyer
 
-      # Set linger value
-      if self.class.linger
-        self.linger = self.class.linger
-      elsif EZMQ.linger
-        self.linger = EZMQ.linger
+      # Set other options
+      opts.each do |key, value|
+        method = "#{key}=".to_sym
+        __send__ method, value if respond_to?(method)
       end
+
+      # Set linger value if global and our options didn't give one
+      self.linger = EZMQ.linger unless opts.has_key?(:linger) || EZMQ.linger.nil?
     end
 
     # Binds the socket to begin listening on one or more local endpoints.
