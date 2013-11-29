@@ -8,7 +8,13 @@ module EZMQ
 
     it_behaves_like "every socket"
     it_behaves_like "a sending socket"
-    it_behaves_like "a receiving socket"
+    it_behaves_like "a receiving socket" do
+      before do
+        subject.send "Obligatory request message"
+        other.receive
+      end
+    end
+
 
   end
 end
