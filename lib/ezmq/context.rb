@@ -12,12 +12,12 @@ module EZMQ
   end
 
   # Closes every socket on the global context and then removes the context
-  # itself. The next attempt to reference EZMQ::context will create a new
+  # itself. The next attempt to reference {EZMQ.context} will create a new
   # context with no current sockets.
   # @note This method clears _only_ the global default context and its
   # sockets. Contexts you've created yourself and assigned to variables
   # are unaffected. (You can still close them with their own
-  # Context#terminate calls.)
+  # {Context#terminate} calls.)
   def self.terminate!
     if @context
       @context.terminate
@@ -57,25 +57,13 @@ module EZMQ
     # the EZMQ interface.
     # @return [FFI::Pointer]
     # @raise [ContextClosed] if the context has already been destroyed
-    def ptr
-      @ptr or raise ContextClosed
-    end
-
-    # The FFI memory pointer to the 0MQ context object. Differs from the
-    # #ptr method in that it returns a null pointer if the context has
-    # been destroyed rather than throwing an exception. Enables API
-    # functions to accept this object wherever a context pointer would
-    # be needed.
-    # @return [FFI::Pointer]
     def to_ptr
-      ptr
-    rescue ContextClosed
-      API::NULL
+      @ptr or raise ContextClosed
     end
 
     # The size of the 0MQ thread pool for this context.
     def io_threads
-      API::invoke :zmq_ctx_get, ptr, Options[:io_threads]
+      API::invoke :zmq_ctx_get, self, Options[:io_threads]
     end
 
     # Specifies the size of the 0MQ thread pool to handle I/O
@@ -84,17 +72,17 @@ module EZMQ
     # least one. This option only applies before creating any sockets
     # on the context.
     def io_threads=(val)
-      API::invoke :zmq_ctx_set, ptr, Options[:io_threads], val
+      API::invoke :zmq_ctx_set, self, Options[:io_threads], val
     end
 
     # Returns the maximum number of sockets allowed for this context.
     def max_sockets
-      API::zmq_ctx_get(ptr, Options[:max_sockets])
+      API::zmq_ctx_get(self, Options[:max_sockets])
     end
 
     # Sets the maximum number of sockets allowed on the context.
     def max_sockets=(val)
-      API::zmq_ctx_set(ptr, Options[:max_sockets], val)
+      API::zmq_ctx_set(self, Options[:max_sockets], val)
     end
 
 

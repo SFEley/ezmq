@@ -45,10 +45,6 @@ module EZMQ
         ObjectSpace.garbage_collect while weakref.weakref_alive? && (gc_counter += 1) < 10
       end
 
-      it "returns a null pointer if cast after closing" do
-        subject.terminate
-        expect(subject.to_ptr).to be_null
-      end
 
     end
 

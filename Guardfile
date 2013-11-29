@@ -10,7 +10,7 @@ guard :rspec,
       :focus_on_failed => false,
       :keep_failed => true do
   watch(%r{^spec/.+_spec\.rb$})
-  watch(%r{^spec/.+_shared\.rb$}) { "spec" }
+  watch(%r{^(spec.*)/.+_shared\.rb$}) { |m| m[1] }
   watch(%r{^lib/(.+)\.rb$})     { |m| "spec/#{m[1]}_spec.rb" }
   watch('spec/spec_helper.rb')  { "spec" }
   watch(%r{^spec/support/.*})  { "spec" }

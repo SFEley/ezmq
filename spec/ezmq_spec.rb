@@ -5,8 +5,6 @@ module EZMQ
     end
 
     describe "global context" do
-      before {EZMQ.terminate!}
-
       it "is always there when we need it" do
         expect(described_class.context).to be_a Context
       end
@@ -26,6 +24,7 @@ module EZMQ
         described_class.terminate!
       end
 
+      after {EZMQ.terminate!}
     end
 
   end

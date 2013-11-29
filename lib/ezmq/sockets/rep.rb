@@ -1,6 +1,6 @@
 require 'ezmq/socket'
 
 module EZMQ
-  class REP
+  class REP < Socket
   end
 end
