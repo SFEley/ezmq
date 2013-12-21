@@ -19,9 +19,16 @@ module EZMQ
       before {subject.connect other}
       it "handles single-part messages" do
         other.send "Foo!"
-        subject.on_receive {|msg| "You said '#{msg}'"}
+        subject.on_request {|msg| "You said '#{msg}'"}
         other.receive.should eq "You said 'Foo!'"
       end
+
+      it "handles multi-part messages" do
+        other.send "Foo", "Bar"
+        subject.on_request {|msg| msg.map {|part| part.upcase}}
+        other.receive.should eq ["FOO", "BAR"]
+      end
+
 
     end
   end

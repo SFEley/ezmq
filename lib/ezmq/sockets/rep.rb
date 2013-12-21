@@ -21,8 +21,15 @@ module EZMQ
   class REP < Socket
 
     # Waits for a message to be received, passes it to the given block,
-    # and sends the block's return value as the response.  The block can
+    # and sends the block's return value as the response.  The block should
     # return a single string, an array of strings (message parts), or a
-    # {Message} object. Wrapped in a loop
+    # {Message} object.
+    # @yield [Message] A single- or multi-part message
+    # @yieldreturn [String, Array, Message] Sent back to the requester
+    def on_request
+      request = receive
+      response = yield request
+      send *response
+    end
   end
 end
