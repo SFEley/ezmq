@@ -15,5 +15,7 @@ module EZMQ
   # message parts, blocks until a reply is received, and returns the
   # reply.
   class REQ < Socket
+
+
   end
 end

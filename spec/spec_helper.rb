@@ -4,6 +4,8 @@
 # loaded once.
 #
 # See http://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
+require 'timeout'
+
 require 'ezmq'
 $:.unshift File.join(File.dirname(__FILE__), 'support')
 
@@ -17,4 +19,6 @@ RSpec.configure do |config|
   # the seed, which is printed after each run.
   #     --seed 1234
   config.order = 'random'
+
+
 end
