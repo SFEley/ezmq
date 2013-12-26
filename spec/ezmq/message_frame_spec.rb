@@ -28,11 +28,15 @@ module EZMQ
       end
 
       it "can't read anything by offset" do
-        expect {subject[0]}.to raise_error(IndexError)
+        expect {subject[1]}.to raise_error(IndexError)
+      end
+
+      it "can't read any bytes" do
+        expect {subject[0]}.to raise_error(RangeError)
       end
 
       it "can't set anything by offset" do
-        expect {subject[0] = '?'}.to raise_error(IndexError)
+        expect {subject[1] = '?'}.to raise_error(IndexError)
       end
 
       it "knows there are no more messages" do
@@ -61,8 +65,8 @@ module EZMQ
         expect(subject.to_s).to eq 'antidisest'
       end
 
-      it "can read up to its offset" do
-        expect(subject[2, 15]).to eq subject.data[2, 8]
+      it "is initialized with zeros" do
+        expect(subject[2, 8]).to eq 0.chr * 8
       end
 
       it "can set by offset" do
@@ -120,7 +124,7 @@ module EZMQ
 
       it "can overwrite the buffer" do
         subject.data = "The quick brown fox jumped over the lazy dog."
-        expect(subject.to_s).to eq "The quick brown fox jumped over the lazy dog.he aid of their party!"
+        expect(subject.to_s).to eq "The quick brown fox jumped over the lazy dog.\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
       end
 
     end

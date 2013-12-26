@@ -2,52 +2,61 @@ module EZMQ
   class Socket
 
     # From include/zmq.h
+    # Value arrays consist of the ZeroMQ option number, the type, and
+    # an optional size for strings.
     Options = {
-      affinity:                 4,
-      identity:                 5,
-      subscribe:                6,
-      unsubscribe:              7,
-      rate:                     8,
-      recovery_ivl:             9,
-      sndbuf:                   11,
-      rcvbuf:                   12,
-      rcvmore:                  13,
-      fd:                       14,
-      events:                   15,
-      type:                     16,
-      linger:                   17,
-      reconnect_ivl:            18,
-      backlog:                  19,
-      reconnect_ivl_max:        21,
-      maxmsgsize:               22,
-      sndhwm:                   23,
-      rcvhwm:                   24,
-      multicast_hops:           25,
-      rcvtimeo:                 27,
-      sndtimeo:                 28,
-      ipv4only:                 31,
-      last_endpoint:            32,
-      router_mandatory:         33,
-      fail_unroutable:          33,   # Deprecated alias
-      router_behavior:          33,   # Deprecated alias
-      tcp_keepalive:            34,
-      tcp_keepalive_cnt:        35,
-      tcp_keepalive_idle:       36,
-      tcp_keepalive_intvl:      37,
-      tcp_accept_filter:        38,
-      delay_attach_on_connect:  39,
-      xpub_verbose:             40
+      affinity:                 [4, :uint64],
+      identity:                 [5, :char, 255],
+      subscribe:                [6, :char, 1024],
+      unsubscribe:              [7, :char, 1024],
+      rate:                     [8, :int],
+      recovery_ivl:             [9, :int],
+      sndbuf:                   [11, :int],
+      rcvbuf:                   [12, :int],
+      rcvmore:                  [13, :int],
+      fd:                       [14, :int],
+      events:                   [15, :int],
+      type:                     [16, :int],
+      linger:                   [17, :int],
+      reconnect_ivl:            [18, :int],
+      backlog:                  [19, :int],
+      reconnect_ivl_max:        [21, :int],
+      maxmsgsize:               [22, :int64],
+      sndhwm:                   [23, :int],
+      rcvhwm:                   [24, :int],
+      multicast_hops:           [25, :int],
+      rcvtimeo:                 [27, :int],
+      sndtimeo:                 [28, :int],
+      ipv4only:                 [31, :int],
+      last_endpoint:            [32, :char, 1024],
+      router_mandatory:         [33, :int],
+      fail_unroutable:          [33, :int],   # Deprecated alias
+      router_behavior:          [33, :int],  # Deprecated alias
+      tcp_keepalive:            [34, :int],
+      tcp_keepalive_cnt:        [35, :int],
+      tcp_keepalive_idle:       [36, :int],
+      tcp_keepalive_intvl:      [37, :int],
+      tcp_accept_filter:        [38, :char, 1024],
+      delay_attach_on_connect:  [39, :int],
+      xpub_verbose:             [40, :int]
     }
 
     # @api private
     # Sets up a retrievable socket option as a reader attribute.
     def self.get_option(name, *aliases)
+      option, type, limit = *Options[name]
+      limit ||= 1   # Only :char has length limits
       define_method name do
-        val_pointer = API::Pointer.malloc(API::INT_SIZE)
-        size_pointer = API::Pointer.malloc(API::SIZE_T_SIZE)
-        size_pointer[0] = API::INT_SIZE
-        API::invoke :zmq_getsockopt, self, Options[name], val_pointer, size_pointer
-        val_pointer.to_s(size_pointer[0].to_i).unpack('i').first
+        val_pointer = FFI::MemoryPointer.new(type, limit, true)
+        size_pointer = FFI::MemoryPointer.new(:ssize_t)
+        size_pointer.write_int(val_pointer.size)
+        API::invoke :zmq_getsockopt, self, option, val_pointer, size_pointer
+        case type
+          when :int then val_pointer.read_int
+          when :char then val_pointer.read_string(size_pointer.read_int).chomp("\x00")
+          when :int64 then val_pointer.read_int64
+          when :uint64 then val_pointer.read_uint64
+        end
       end
       aliases.each {|a| alias_method a, name}
     end
@@ -55,11 +64,23 @@ module EZMQ
     # @api private
     # Sets up a settable socket option as a writer attribute.
     def self.set_option(name, *aliases)
+      option, type = *Options[name]
       define_method "#{name}=".to_sym do |val|
-        val_pointer = API::Pointer.malloc(API::INT_SIZE)
-        val_pointer[0, API::INT_SIZE] = [val].pack('i')
-        API::invoke :zmq_setsockopt, self, Options[name], val_pointer, API::INT_SIZE
-        send name
+        case type
+        when :int
+          val_pointer = FFI::MemoryPointer.new(:int)
+          val_pointer.write_int(val)
+        when :char
+          val_pointer = FFI::MemoryPointer.from_string(val)
+        when :int64
+          val_pointer = FFI::MemoryPointer.new(:int64)
+          val_pointer.write_int64(val)
+        when :uint64
+          val_pointer = FFI::MemoryPointer.new(:uint64)
+          val_pointer.write_uint64(val)
+        end
+        API::invoke :zmq_setsockopt, self, option, val_pointer, val_pointer.size
+        val
       end
       aliases.each {|a| alias_method "#{a}=".to_sym, "#{name}=".to_sym}
     end
@@ -72,6 +93,9 @@ module EZMQ
       set_option(name, *aliases)
     end
 
+    # @!attribute [r] last_endpoint
+    #   The most recently bound address that this socket was connected to.
+    get_option :last_endpoint, :endpoint
 
     # @!attribute [rw] backlog
     #   The maximum number of outstanding connections to this socket

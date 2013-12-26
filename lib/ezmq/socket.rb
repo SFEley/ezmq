@@ -41,11 +41,11 @@ module EZMQ
     # been destroyed rather than throwing an exception. Enables API
     # functions to accept this object wherever a socket pointer would
     # be needed.
-    # @return [API::Pointer]
+    # @return [FFI::Pointer]
     def to_ptr
       ptr
     rescue SocketClosed
-      API::NULL
+      FFI::Pointer::NULL
     end
 
 
@@ -198,13 +198,11 @@ module EZMQ
       end
 
       while part = parts.shift
-        size = part.bytesize
-        content_ptr = API::Pointer.malloc(size)
-        content_ptr[0, size] = part
+        content_ptr = API::pointer_from part
         flags = 0
         flags += 1 if opts[:async]
         flags += 2 if !parts.empty? || opts[:more]
-        API::invoke :zmq_send, self, content_ptr, size, flags
+        API::invoke :zmq_send, self, content_ptr, content_ptr.size, flags
       end
     end
 
@@ -292,9 +290,9 @@ module EZMQ
     # @return [String] Received message data with binary encoding.
     def receive_part(opts={})
       if size = opts[:size]
-        ptr = API::Pointer.malloc size
+        ptr = FFI::MemoryPointer.new :char, size
         received_size = API::invoke :zmq_recv, self, ptr, size, 0
-        ptr.to_s([size, received_size].min)
+        ptr.read_string [size, received_size].min
       else
         receive_into_frame(receive_frame, opts)
         receive_frame.to_s
@@ -321,16 +319,6 @@ module EZMQ
       rcvmore == 1
     end
 
-    # Returns the most recently bound address that this socket is listening
-    # to from 0MQ.
-    def last_endpoint
-      val_pointer = API::Pointer.malloc(255)
-      size_pointer = API::Pointer.malloc(Fiddle::SIZEOF_SIZE_T)
-      size_pointer[0] = 255
-      API::invoke :zmq_getsockopt, self, Options[:last_endpoint], val_pointer, size_pointer
-      val_pointer.to_s(size_pointer[0].to_i - 1)
-    end
-    alias_method :endpoint, :last_endpoint
 
     # Closes this socket.
     def close
@@ -384,9 +372,9 @@ module EZMQ
     end
 
     def recv(size, async)
-      ptr = API::Pointer.malloc size
+      ptr = FFI::MemoryPointer.new :char, size
       received_size = API::invoke :zmq_recv, self, ptr, size, 0
-      ptr.to_s([size, received_size].min)
+      ptr.read_string [size, received_size].min
     end
 
   end

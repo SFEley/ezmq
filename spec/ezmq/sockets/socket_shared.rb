@@ -17,11 +17,11 @@ module EZMQ
     end
 
     it "has an associated socket object" do
-      expect(subject.ptr).to be_a(API::Pointer)
+      expect(subject.ptr).to be_a(FFI::Pointer)
     end
 
     it "can be treated as a pointer to the socket" do
-      expect(subject.to_ptr).to be_a(API::Pointer)
+      expect(subject.to_ptr).to be_a(FFI::Pointer)
     end
 
     it "falls back to Ruby #send when given a symbol" do

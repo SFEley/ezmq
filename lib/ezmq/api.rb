@@ -1,53 +1,46 @@
+require 'ffi'
+
 module EZMQ
-
-  # Which dynamic loading library we use (DL or Fiddle) and parts of how we
-  # use it depend on the Ruby version. *DO NOT* require more than one of
-  # these adapter modules. You'll confuse the poor thing.
-  case RUBY_VERSION
-  when /^2\./ then require 'ezmq/api/mri_2_0'
-  else raise "Unknown ruby version!"
-  end
-
-
   # The functions of the ZeroMQ C library are wrapped here. It's a direct
   # translation of `zmq_foo()` to `EZmq::API::zmq_foo`.  If you want to use
   # this module alone and ignore all of the Ruby objects from the rest
   # of the EZmq gem, knock yourself out. Just know your FFI pointers and
   # be careful with your setup and teardown.
   module API
+    extend FFI::Library
 
-    dlload 'libzmq.dylib'
+    ffi_lib ['zmq', 'libzmq.so.3']
 
     # Context functions
-    extern 'void* zmq_ctx_new ()'
-    extern 'int zmq_ctx_get (void*, int)'
-    extern 'int zmq_ctx_set (void*, int, int)'
-    extern 'int zmq_ctx_destroy (void*)'
+    attach_function :zmq_ctx_new, [], :pointer
+    attach_function :zmq_ctx_get, [:pointer, :int], :int
+    attach_function :zmq_ctx_set, [:pointer, :int, :int], :int
+    attach_function :zmq_ctx_destroy, [:pointer], :int
 
     # Socket functions
-    extern 'void* zmq_socket (void*, int)'
-    extern 'int zmq_close(void*)'
-    extern 'int zmq_bind (void*, const char*)'
-    extern 'int zmq_connect (void*, const char*)'
-    extern 'int zmq_getsockopt (void*, int, void*, size_t*)'
-    extern 'int zmq_setsockopt (void*, int, void*, size_t)'
-    extern 'int zmq_send (void*, void*, size_t, int)'
-    extern 'int zmq_recv (void*, void*, size_t, int)'
+    attach_function :zmq_socket, [:pointer, :int], :pointer
+    attach_function :zmq_close, [:pointer], :int
+    attach_function :zmq_bind, [:pointer, :string], :int
+    attach_function :zmq_connect, [:pointer, :string], :int
+    attach_function :zmq_getsockopt, [:pointer, :int, :pointer, :pointer], :int
+    attach_function :zmq_setsockopt, [:pointer, :int, :pointer, :size_t], :int
+    attach_function :zmq_send, [:pointer, :pointer, :size_t, :int], :int
+    attach_function :zmq_recv, [:pointer, :pointer, :size_t, :int], :int
 
     # Message functions
-    extern 'int zmq_msg_init (zmq_msg_t*)'
-    extern 'int zmq_msg_init_size (zmq_msg_t*, size_t)'
-    extern 'size_t zmq_msg_size (zmq_msg_t*)'
-    extern 'void* zmq_msg_data (zmq_msg_t*)'
-    extern 'int zmq_msg_recv (zmq_msg_t*, void*, int)'
-    extern 'int zmq_msg_send (zmq_msg_t*, void*, int)'
-    extern 'int zmq_msg_copy (zmq_msg_t*, zmq_msg_t*)'
-    extern 'int zmq_msg_move (zmq_msg_t*, zmq_msg_t*)'
-    extern 'int zmq_msg_more (zmq_msg_t*)'
-    extern 'int zmq_msg_close (zmq_msg_t*)'
+    attach_function :zmq_msg_init, [:pointer], :int
+    attach_function :zmq_msg_init_size, [:pointer, :size_t], :int
+    attach_function :zmq_msg_size, [:pointer], :size_t
+    attach_function :zmq_msg_data, [:pointer], :pointer
+    attach_function :zmq_msg_recv, [:pointer, :pointer, :int], :int
+    attach_function :zmq_msg_send, [:pointer, :pointer, :int], :int
+    attach_function :zmq_msg_copy, [:pointer, :pointer], :int
+    attach_function :zmq_msg_move, [:pointer, :pointer], :int
+    attach_function :zmq_msg_more, [:pointer], :int
+    attach_function :zmq_msg_close, [:pointer], :int
 
     # Info functions
-    extern 'const char *zmq_strerror (int)'
+    attach_function :zmq_strerror, [:int], :string
 
     # Wraps 0MQ's C-based calling semantics (return a 0 on success, -1 or
     # null pointer and get the errno on failures) in a much more Rubyish
@@ -58,16 +51,26 @@ module EZMQ
     def self.invoke(name, *args)
       result = self.send name, *args
       case result
-      when Pointer
-        raise ZMQError.for_errno(Fiddle.last_error) if result.null?
+      when FFI::Pointer
+        raise ZMQError.for_errno(FFI.errno) if result.null?
         result
       when Fixnum
-        raise ZMQError.for_errno(Fiddle.last_error) if result == -1
+        raise ZMQError.for_errno(FFI.errno) if result == -1
         result
       else
         result
       end
     end
+
+    # @api private
+    # Convenience method to convert a string into an FFI pointer with no
+    # null terminator.
+    def self.pointer_from(val)
+      size = val.bytesize
+      ptr = FFI::MemoryPointer.new :char, val.bytesize
+      ptr.put_bytes 0, val, 0, size
+    end
+
 
 
   end

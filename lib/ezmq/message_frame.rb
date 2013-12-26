@@ -1,3 +1,5 @@
+require 'ezmq/api'
+
 module EZMQ
   # Wraps a 0MQ message `zmq_msg_t` structure for use with the `zmq_msg_*`
   # family of API functions. This is a low-level class that most **EZMQ**
@@ -59,7 +61,7 @@ module EZMQ
     #   @param [String] val String to be delivered.
     def initialize(val=nil)
 
-      @ptr = API::Pointer.malloc(32)
+      @ptr = FFI::MemoryPointer.new(:char, 32)
       case val
       when nil
         API::invoke :zmq_msg_init, @ptr
@@ -78,7 +80,7 @@ module EZMQ
     # The memory pointer to the 0MQ message object. You shouldn't need
     # to use this directly unless you're doing low-level work outside of
     # the EZMQ interface.
-    # @return [API::Pointer]
+    # @return [FFI::MemoryPointer]
     # @raise [MessageFrameClosed] if this message structure has already been freed
     def ptr
       @ptr or raise MessageFrameClosed
@@ -89,11 +91,11 @@ module EZMQ
     # been destroyed rather than throwing an exception. Enables API
     # functions to accept this object wherever a context pointer would
     # be needed.
-    # @return [API::Pointer]
+    # @return [FFI::MemoryPointer]
     def to_ptr
       ptr
     rescue MessageFrameClosed
-      API::NULL
+      FFI::Pointer::NULL
     end
 
     # The length in bytes of the message content in memory. This value
@@ -106,64 +108,71 @@ module EZMQ
 
     # The content of the message buffer as known to 0MQ. This is a binary
     # encoded string of exactly {#size} bytes. Allocated buffers without
-    # content will contain null bytes or garbage.
+    # content will contain null bytes.
     # @return [String]
     # @see #[] if you want a subset of the data
     # @see #to_s if you want to treat the contents as text
     def data
-      content_ptr.to_s(size)
+      self[0, size]
     end
     alias_method :to_s, :data
 
 
-    # Sets the content of the message buffer up to the allocated {#size}
-    # or the length of the given string (whichever is less). Attempts to
-    # set data beyond the allocated size will silently fail.
+    # Replaces the contents of the message buffer with the given string.
+    # Strings longer than the allocated buffer size will be silently
+    # truncated; if the string is shorter, the remainder of the buffer will
+    # be filled with null bytes.
     # @return [String] The new contents of the data buffer
     def data=(val)
-      if (val_size = val.bytesize) < (buffer_size = size)  # Reduce duplicate calls
-        content_ptr[0, val_size] = val
-      else
-        content_ptr[0, buffer_size] = val.byteslice(0, buffer_size)
-      end
-      data
+      self[0] = val
     end
 
     # The content of the message buffer from the given offset up to the given
     # length (or the end of the buffer allocation). If no length is given,
-    # a single byte will be returned. An offset beyond the end of the
+    # a single byte will be returned. Asking for data beyond the end of the
     # buffer will raise an exception.
+    #
     # @param [Fixnum] offset Starting byte of slice with 0 as the first byte
     # @param [Fixnum] length Number of bytes to return (defaults to 1)
     # @return [String]
     # @raise [IndexError] if the offset runs beyond the end of the buffer
+    # @raise [RangeError] if the requested length would run beyond the end of the buffer
     # @see #data
     def [](offset, length=1)
-      if offset >= (buffer_size = size)
-        raise IndexError, "Offset #{offset} exceeds frame size (#{buffer_size})"
+      if offset > (buffer_size = size)
+        raise IndexError, "Requested offset (#{offset}) exceeds frame size (#{buffer_size})"
+      elsif (limit = offset + length) > buffer_size
+        raise RangeError, "Requested range (#{offset}..#{limit}) exceeds frame size (#{buffer_size})"
       end
       bounded_length = [length, buffer_size - offset].min
-      content_ptr[offset, bounded_length]
+      content_ptr.get_bytes offset, bounded_length
     end
 
     # Sets the content of the message buffer from the given offset up to the
     # given length, the length of the provided string in bytes, or the end
     # of the buffer allocation (whichever is less). An offset beyond the
-    # end of the buffer will raise an exception.
+    # end of the buffer will raise an exception. If the string given is
+    # shorter than the range length, the remaining space will be filled
+    # with null bytes; if the string is longer, it will be silently truncated.
+    #
     # @param [Fixnum] offset Starting byte of slice with 0 as the first byte
     # @param [Fixnum] length Number of bytes to pull from the provided string (default is string length)
     # @return [String] The substituted part of the string
     # @raise [IndexError] if the offset runs beyond the end of the buffer
     # @see #data=
     def []=(offset, length=nil, val)
-      if offset >= (buffer_size = size)
-        raise IndexError, "Offset #{offset} exceeds frame size (#{buffer_size})"
+      buffer_size = size
+      bounded_length = [length || buffer_size, buffer_size - offset].min
+      raise IndexError, "Offset #{offset} exceeds frame size (#{buffer_size})" if bounded_length < 0
+
+      if (string_size = val.bytesize) >= bounded_length
+        content_ptr.put_bytes offset, val, 0, bounded_length
+      else
+        padding = 0.chr * (bounded_length - string_size)  # "\x00\x00\x00..."
+        content_ptr.put_bytes offset, val
+        content_ptr.put_bytes offset + string_size, padding
       end
-      val_size, rest_of_buffer = val.bytesize, (buffer_size - offset)
-      bounded_length = [val_size, rest_of_buffer, length || val_size].min
-      val = val.byteslice(0, bounded_length) if bounded_length < val_size
-      content_ptr[offset, bounded_length] = val
-      val
+      self[offset, bounded_length]
     end
 
     # True if this is a received message part and there are more to follow.
