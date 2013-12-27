@@ -37,7 +37,12 @@ module EZMQ
     end
 
 
-    describe "lingering", :linger_is_zero => false do
+    describe "lingering" do
+      # Weirdly, SUB and XSUB sockets have a default LINGER option of 0.
+      # Everything else defaults to -1. Don't know what's up with that, but
+      # we account for it by making the default configurable per class.
+      let(:default_linger) {example.metadata.fetch :default_linger, -1}
+
       before(:all) do
         @global_linger = EZMQ.linger
       end
@@ -52,12 +57,10 @@ module EZMQ
         expect(this.linger).to eq 50
       end
 
-      it "defaults to infinite if not given by an option nor global value", :unless => :linger_is_zero do
+      it "uses the socket default if not given by an option nor global value" do
         EZMQ.linger = nil
-        expect(subject.linger).to eq -1
+        expect(subject.linger).to eq default_linger
       end
-
-
 
       it "can be set for the socket" do
         subject.linger = 50

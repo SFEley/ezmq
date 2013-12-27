@@ -9,6 +9,8 @@ require 'timeout'
 require 'ezmq'
 $:.unshift File.join(File.dirname(__FILE__), 'support')
 
+Process.setrlimit(:NOFILE, 2048)    # Don't run out of file handles
+
 Thread.abort_on_exception = true
 
 RSpec.configure do |config|

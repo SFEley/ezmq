@@ -55,7 +55,7 @@ module EZMQ
     end
 
     it "does keep nulls that were already there" do
-      this = described_class.pointer_from "Garbanzø" + 0.chr
+      this = described_class.pointer_from 0.chr + "Garbanzø" + 0.chr
       expect(this.read_string(this.size).force_encoding(Encoding::UTF_8)).to end_with "ø\x00"
     end
 
