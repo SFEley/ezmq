@@ -29,7 +29,24 @@ module EZMQ
         other.receive.should eq ["FOO", "BAR"]
       end
 
+      describe "with multiple requesters" do
+        let(:other2) {REQ.new :bind => :inproc}
+        before do
+          subject.connect other2
+          other2.send "foo", "bar"
+          other.send "goo", "gar"
+          2.times {subject.on_request {|msg| msg.map {|part| part.upcase}}}
+        end
 
+        it "sends the right reply to the right requester" do
+          other.receive.should eq 'GOOGAR'
+        end
+
+        it "sends replies in order" do
+          other2.receive.should eq %w[FOO BAR]
+        end
+
+      end
     end
   end
 end

@@ -16,6 +16,18 @@ module EZMQ
   # reply.
   class REQ < Socket
 
+    # Convenience method for round_trip requests. Behaves like the {#send}
+    # method, but waits after sending until a reply is received and returns
+    # the reply.
+    # @see Socket#send
+    # @param (see {Socket#send})
+    # @return [Message] The return message from the replying {REP} socket.
+    def request(*parts)
+      send *parts
+      receive
+    end
+
+
 
   end
 end

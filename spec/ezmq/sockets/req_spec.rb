@@ -15,22 +15,14 @@ module EZMQ
       end
     end
 
-    describe "#request method", :pending do
+    describe "#request method" do
       before do
-        Thread.abort_on_exception = true
-        puts "Setting up the thread..."
         @rep_thread = Thread.new do
-          puts "Creating REP socket..."
-          rep = REP.new :bind => :inproc, :linger => 1
-          puts "Socket created at #{rep.last_endpoint}"
+          rep = REP.new :bind => :inproc, :linger => 0.1
           Thread.current[:endpoint] = rep.last_endpoint
-          puts "Initiating request handler..."
           rep.on_request {|msg| msg.map {|part| part.upcase}}
-          puts "Request received!"
         end
-        sleep 1
-        puts "Connecting to #{@rep_thread[:endpoint]}"
-        sleep 3
+        sleep 0.01 until @rep_thread[:endpoint]
         subject.connect @rep_thread[:endpoint]
       end
 
@@ -38,8 +30,11 @@ module EZMQ
         expect(subject.request 'foo').to eq 'FOO'
       end
 
+      it "can send a multi-part message" do
+        expect(subject.request 'hello', 'world').to eq ['HELLO', 'WORLD']
+      end
+
       after do
-        puts "Trying to close reply thread..."
         @rep_thread.join(2) or begin
           puts "Timed out; killing reply thread"
           @rep_thread.kill

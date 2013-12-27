@@ -15,7 +15,7 @@ module EZMQ
     attach_function :zmq_ctx_new, [], :pointer
     attach_function :zmq_ctx_get, [:pointer, :int], :int
     attach_function :zmq_ctx_set, [:pointer, :int, :int], :int
-    attach_function :zmq_ctx_destroy, [:pointer], :int
+    attach_function :zmq_ctx_destroy, [:pointer], :int, :blocking => true
 
     # Socket functions
     attach_function :zmq_socket, [:pointer, :int], :pointer
@@ -24,16 +24,16 @@ module EZMQ
     attach_function :zmq_connect, [:pointer, :string], :int
     attach_function :zmq_getsockopt, [:pointer, :int, :pointer, :pointer], :int
     attach_function :zmq_setsockopt, [:pointer, :int, :pointer, :size_t], :int
-    attach_function :zmq_send, [:pointer, :pointer, :size_t, :int], :int
-    attach_function :zmq_recv, [:pointer, :pointer, :size_t, :int], :int
+    attach_function :zmq_send, [:pointer, :pointer, :size_t, :int], :int, :blocking => true
+    attach_function :zmq_recv, [:pointer, :pointer, :size_t, :int], :int, :blocking => true
 
     # Message functions
     attach_function :zmq_msg_init, [:pointer], :int
     attach_function :zmq_msg_init_size, [:pointer, :size_t], :int
     attach_function :zmq_msg_size, [:pointer], :size_t
     attach_function :zmq_msg_data, [:pointer], :pointer
-    attach_function :zmq_msg_recv, [:pointer, :pointer, :int], :int
-    attach_function :zmq_msg_send, [:pointer, :pointer, :int], :int
+    attach_function :zmq_msg_recv, [:pointer, :pointer, :int], :int, :blocking => true
+    attach_function :zmq_msg_send, [:pointer, :pointer, :int], :int, :blocking => true
     attach_function :zmq_msg_copy, [:pointer, :pointer], :int
     attach_function :zmq_msg_move, [:pointer, :pointer], :int
     attach_function :zmq_msg_more, [:pointer], :int
