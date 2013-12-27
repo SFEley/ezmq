@@ -1,4 +1,6 @@
 require 'weakref'
+require 'ezmq/sockets/receive_shared'
+require 'ezmq/sockets/send_shared'
 
 module EZMQ
   shared_examples "every socket" do
@@ -35,7 +37,7 @@ module EZMQ
     end
 
 
-    describe "lingering" do
+    describe "lingering", :linger_is_zero => false do
       before(:all) do
         @global_linger = EZMQ.linger
       end
@@ -50,10 +52,12 @@ module EZMQ
         expect(this.linger).to eq 50
       end
 
-      it "defaults to infinite if not given by an option nor global value" do
+      it "defaults to infinite if not given by an option nor global value", :unless => :linger_is_zero do
         EZMQ.linger = nil
         expect(subject.linger).to eq -1
       end
+
+
 
       it "can be set for the socket" do
         subject.linger = 50
@@ -222,82 +226,6 @@ module EZMQ
     let(:single) {"Now is the time for all good men to come to the aid of their party!"}
     let(:multi) {%w[Hello World!]}
     before {subject.connect other}
-  end
-
-  shared_examples "a sending socket" do
-    include_context "message delivery"
-    before do
-      subject.send_timeout = 1000   # So failures don't block the spec run
-      other.receive_timeout = 1000
-    end
-
-    it "can send a single-part message" do
-      subject.send single
-      expect(other.receive).to eq single
-    end
-
-    it "can send a multi-part message" do
-      subject.send *multi
-      expect(other.receive).to include "Hello", "World!"
-    end
-
-    it "can send a multi-part message across multiple calls" do
-      subject.send multi[0], more: true
-      subject.send multi[1]
-      expect(other.receive).to eq "HelloWorld!"
-    end
-
-    it "can send into a message frame" do
-      frame = MessageFrame.new single
-      subject.send_from_frame(frame)
-      expect(other.receive).to eq single
-    end
-
-  end
-
-  shared_examples "a receiving socket" do
-    include_context "message delivery"
-    before do
-      subject.receive_timeout = 1000
-      other.send_timeout = 1000
-    end
-
-    it "can receive a single-part message" do
-      other.send single
-      expect(subject.receive).to eq single
-    end
-
-    it "can receive a multi-part message" do
-      other.send *multi
-      expect(subject.receive).to include "Hello", "World!"
-    end
-
-    it "can receive a multi-part message across multiple calls" do
-      other.send *multi
-      expect(subject.receive_part).to eq "Hello"
-      expect(subject.receive_part).to eq "World!"
-    end
-
-    it "knows when there are more message parts" do
-      other.send *multi
-      expect(subject).not_to be_more
-      subject.receive_part
-      expect(subject).to be_more
-      subject.receive_part
-      expect(subject).not_to be_more
-    end
-
-    it "truncates when given a size" do
-      other.send single
-      expect(subject.receive size: 10).to eq "Now is the"
-    end
-
-    it "can receive into a message frame" do
-      frame = MessageFrame.new
-      other.send single
-      subject.receive_into_frame(frame)
-      expect(frame.to_s).to eq single
-    end
   end
 
 end

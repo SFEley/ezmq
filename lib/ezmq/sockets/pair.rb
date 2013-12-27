@@ -17,6 +17,8 @@ module EZMQ
   # @see http://api.zeromq.org/3-2:zmq-socket
   #
   class PAIR < Socket
+    include Sendable
+    include Receivable
 
     # Returns a two-element array of {PAIR} sockets that are already
     # connected via _inproc_ transport.  The `:name`, `:bind` and `:connect`
@@ -42,9 +44,5 @@ module EZMQ
       right.connect left.last_endpoint
       [left, right]
     end
-
-
-
-
   end
 end

@@ -2,13 +2,13 @@ require 'spec_helper'
 require 'ezmq/sockets/socket_shared'
 
 module EZMQ
-  describe PULL do
-    let(:other) {PUSH.new :bind => :inproc}
+  describe PUB do
+    let(:other) {SUB.new :subscribe => ''}
 
     it_behaves_like "every socket"
-    it_behaves_like "a receive-only socket" do
+    it_behaves_like "a send-only socket" do
       before do
-        subject.connect other
+        other.connect subject
       end
     end
 

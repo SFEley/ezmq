@@ -1,6 +1,7 @@
 require 'ezmq/socket'
 
 module EZMQ
+
   # A **REQ** socket is the originating end of a request/reply pattern.
   # It sends and receives messages in alternating succession; attempting
   # to send two messages in a row or receive a message without sending one
@@ -15,6 +16,8 @@ module EZMQ
   # message parts, blocks until a reply is received, and returns the
   # reply.
   class REQ < Socket
+    include Sendable
+    include Receivable
 
     # Convenience method for round_trip requests. Behaves like the {#send}
     # method, but waits after sending until a reply is received and returns

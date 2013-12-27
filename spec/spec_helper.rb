@@ -22,5 +22,7 @@ RSpec.configure do |config|
   #     --seed 1234
   config.order = 'random'
 
-
+  config.around(:each) do |example|
+    Timeout::timeout(3) {example.run}
+  end
 end

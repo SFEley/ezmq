@@ -71,7 +71,7 @@ module EZMQ
           val_pointer = FFI::MemoryPointer.new(:int)
           val_pointer.write_int(val)
         when :char
-          val_pointer = FFI::MemoryPointer.from_string(val)
+          val_pointer = API.pointer_from(val)
         when :int64
           val_pointer = FFI::MemoryPointer.new(:int64)
           val_pointer.write_int64(val)

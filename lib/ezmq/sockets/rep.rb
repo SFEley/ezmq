@@ -19,6 +19,8 @@ module EZMQ
   # want to wrap it in a *while* or *until* loop with conditions to tell
   # it when to stop.
   class REP < Socket
+    include Sendable
+    include Receivable
 
     # Waits for a message to be received, passes it to the given block,
     # and sends the block's return value as the response.  The block should
