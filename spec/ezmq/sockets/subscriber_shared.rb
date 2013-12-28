@@ -46,7 +46,7 @@ module EZMQ
       send_messages
       3.times {received << subject.receive}
       subject.unsubscribe 'a'
-      sleep 0.001   # Seems needed for XSUB unsubscription messages to go out
+      sleep 0.01   # Seems needed for XSUB unsubscription messages to go out
       send_messages
       received << subject.receive
       expect(received).to eq %w{aaaaa bbaaa aaabb bbaaa}

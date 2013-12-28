@@ -19,7 +19,7 @@ module EZMQ
 
     # Socket functions
     attach_function :zmq_socket, [:pointer, :int], :pointer
-    attach_function :zmq_close, [:pointer], :int
+    attach_function :zmq_close, [:pointer], :int, :blocking => true
     attach_function :zmq_bind, [:pointer, :string], :int
     attach_function :zmq_connect, [:pointer, :string], :int
     attach_function :zmq_getsockopt, [:pointer, :int, :pointer, :pointer], :int

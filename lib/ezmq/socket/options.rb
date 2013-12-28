@@ -66,6 +66,12 @@ module EZMQ
     def self.set_option(name, *aliases)
       option, type = *Options[name]
       define_method "#{name}=".to_sym do |val|
+        if val == true
+          val = 1
+        elsif val == false
+          val = 0
+        end
+
         case type
         when :int
           val_pointer = FFI::MemoryPointer.new(:int)
