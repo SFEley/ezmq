@@ -73,6 +73,12 @@ module EZMQ
     end
 
     describe "options" do
+      it "can get and set the identity" do
+        expect(subject.identity).to eq ''
+        subject.identity = uniq = "foo-#{rand}"
+        expect(subject.identity).to eq uniq
+      end
+
       it "can get and set the backlog" do
         expect(subject.backlog).to eq 100
         expect {subject.backlog = 300}.to change {subject.backlog}.by 200
@@ -226,8 +232,10 @@ module EZMQ
   end
 
   shared_context "message delivery" do
-    let(:single) {"Now is the time for all good men to come to the aid of their party!"}
-    let(:multi) {%w[Hello World!]}
+    let(:single_sent) {"Now is the time for all good men to come to the aid of their party!"}
+    let(:single_received) {single_sent}
+    let(:multi_sent) {%w[Hello World!]}
+    let(:multi_received) {multi_sent}
     before {subject.connect other}
   end
 

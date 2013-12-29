@@ -103,6 +103,12 @@ module EZMQ
     #   The most recently bound address that this socket was connected to.
     get_option :last_endpoint, :endpoint
 
+    # @!attribute [rw] identity
+    #   Identifies this socket to {ROUTER} sockets for addressing purposes.
+    #   If set, this value should be unique across all sockets that may
+    #   possibly connect to the same {ROUTER}.
+    socket_option :identity
+
     # @!attribute [rw] backlog
     #   The maximum number of outstanding connections to this socket
     #   (for connection-oriented transports such as *tcp*). See your

@@ -10,25 +10,33 @@ module EZMQ
     end
 
     it "can send a single-part message" do
-      subject.send single
-      expect(other.receive).to eq single
+      # Munged because ROUTER sockets never send single parts
+      case single_sent
+        when String then subject.send single_sent
+        when Array then subject.send *single_sent
+      end
+      expect(other.receive).to eq single_received
     end
 
     it "can send a multi-part message" do
-      subject.send *multi
-      expect(other.receive).to include "Hello", "World!"
+      subject.send *multi_sent
+      expect(other.receive).to eq multi_received
     end
 
     it "can send a multi-part message across multiple calls" do
-      subject.send multi[0], more: true
-      subject.send multi[1]
-      expect(other.receive).to eq "HelloWorld!"
+      multi_sent.each do |part|
+        subject.send part, :more => (part != multi_sent.last)
+      end
+      expect(other.receive).to eq multi_received
     end
 
-    it "can send into a message frame" do
-      frame = MessageFrame.new single
-      subject.send_from_frame(frame)
-      expect(other.receive).to eq single
+    # This example munged to hell only to handle the ROUTER socket
+    it "can send into message frames" do
+      multi_sent.each do |part|
+        frame = MessageFrame.new part
+        subject.send_from_frame frame, :more => (part != multi_sent.last)
+      end
+      expect(other.receive).to eq multi_received
     end
   end
 

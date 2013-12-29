@@ -68,9 +68,6 @@ module EZMQ
       @ptr = API::invoke :zmq_socket, context, self.class
       context << self
 
-      bind *opts[:bind] if opts[:bind]
-      connect *opts[:connect] if opts[:connect]
-
       # Clean up if garbage collected
       @destroyer = self.class.finalize(@ptr)
       ObjectSpace.define_finalizer self, @destroyer
@@ -83,6 +80,10 @@ module EZMQ
 
       # Set linger value if global and our options didn't give one
       self.linger = EZMQ.linger unless opts.has_key?(:linger) || EZMQ.linger.nil?
+
+      # Finally, bind or connect as appropriate
+      bind *opts[:bind] if opts[:bind]
+      connect *opts[:connect] if opts[:connect]
     end
 
     # Binds the socket to begin listening on one or more local endpoints.

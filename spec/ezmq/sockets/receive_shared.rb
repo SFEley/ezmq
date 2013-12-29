@@ -9,40 +9,43 @@ module EZMQ
     end
 
     it "can receive a single-part message" do
-      other.send single
-      expect(subject.receive).to eq single
+      other.send single_sent
+      expect(subject.receive).to eq single_received
     end
 
     it "can receive a multi-part message" do
-      other.send *multi
-      expect(subject.receive).to include "Hello", "World!"
+      other.send *multi_sent
+      expect(subject.receive).to eq multi_received
     end
 
     it "can receive a multi-part message across multiple calls" do
-      other.send *multi
-      expect(subject.receive_part).to eq "Hello"
-      expect(subject.receive_part).to eq "World!"
+      other.send *multi_sent
+      multi_received.each {|part| expect(subject.receive_part).to eq part}
     end
 
     it "knows when there are more message parts" do
-      other.send *multi
+      other.send *multi_sent
       expect(subject).not_to be_more
-      subject.receive_part
-      expect(subject).to be_more
+      (multi_received.length - 1).times do
+        subject.receive_part
+        expect(subject).to be_more
+      end
       subject.receive_part
       expect(subject).not_to be_more
     end
 
     it "truncates when given a size" do
-      other.send single
-      expect(subject.receive size: 10).to eq "Now is the"
+      other.send single_sent
+      expect(subject.receive size: 10).to eq Array(single_received).collect {|part| part[0,10]}
     end
 
-    it "can receive into a message frame" do
+    it "can receive into message frames" do
       frame = MessageFrame.new
-      other.send single
-      subject.receive_into_frame(frame)
-      expect(frame.to_s).to eq single
+      other.send *multi_sent
+      multi_received.each do |part|
+        subject.receive_into_frame(frame)
+        expect(frame.to_s).to eq part
+      end
     end
   end
 
