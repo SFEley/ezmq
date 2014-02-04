@@ -2,7 +2,7 @@ require 'spec_helper'
 require 'ezmq/sockets/socket_shared'
 
 module EZMQ
-  describe PULL do
+  describe PULL, :focus do
     let(:other) {PUSH.new :bind => :inproc}
 
     it_behaves_like "every socket"

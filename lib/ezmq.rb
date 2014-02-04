@@ -1,3 +1,4 @@
+require 'ezmq/loggable'
 require 'ezmq/api'
 require 'ezmq/exceptions'
 require 'ezmq/context'
@@ -17,6 +18,32 @@ module EZMQ
     # messages cannot be delivered.  (Danger Will Robinson!)
     # @see Socket#linger
     attr_accessor :linger
+
+
+    # A global 0MQ context that acts as the default container for all
+    # sockets. The Context object is created when it is referenced for the
+    # first time. Unless you have a good reason for multiple contexts you
+    # should be using this placeholder, which will never be accidentally
+    # garbage collected.
+    def context
+      global_mutex.synchronize {@context ||= Context.new}
+    end
+
+    # Closes every socket on the global context and then removes the context
+    # itself. The next attempt to reference {EZMQ.context} will create a new
+    # context with no current sockets.
+    # @note This method clears _only_ the global default context and its
+    # sockets. Contexts you've created yourself and assigned to variables
+    # are unaffected. (You can still close them with their own
+    # {Context#terminate} calls.)
+    def terminate!
+      global_mutex.synchronize do
+        if @context
+          @context.terminate
+          @context = nil
+        end
+      end
+    end
 
     # A ZeroMQ convenience method for joining two sockets with
     # optional tracing. The {Proxy} must be supplied with two sockets,
@@ -43,9 +70,14 @@ module EZMQ
     # @param capture [Socket] Optional socket that receives messages
     def proxy(frontend, backend, capture=nil)
       API::invoke :zmq_proxy, frontend, backend, capture
+    rescue EZMQ::ETERM
 
     end
+  private
+    attr_reader :global_mutex
 
   end
   self.linger = 1000
+  @global_mutex = Mutex.new
+
 end

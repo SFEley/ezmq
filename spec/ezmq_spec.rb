@@ -1,6 +1,6 @@
 require 'spec_helper'
 module EZMQ
-  describe EZMQ do
+  describe EZMQ, :focus do
     it "has a global linger value by default" do
       expect(described_class.linger).to be > 0
     end
@@ -28,10 +28,10 @@ module EZMQ
       after {described_class.terminate!}
     end
 
-    describe "#proxy method", :focus do
+    describe "::proxy method" do
       # Using DEALERs instead of PAIRs because they're more typical in a
       # context connection and termination sense.
-      let(:context) {Context.new close_sockets: false}
+      let(:context) {Context.new}
       let!(:front) {DEALER.new :context => context}
       let(:frontend) {DEALER.new :connect => front, :context => context}
       let!(:back) {DEALER.new :context => context}
@@ -54,24 +54,34 @@ module EZMQ
         expect {described_class.proxy frontend}.to raise_error ArgumentError
       end
 
-
       context "in its own thread" do
+        def proxy_return
+          unless @returned
+            @returned = true
+            context.terminate
+            proxy_thread.join(1)
+          end
+        end
+
         let(:proxy) {described_class.proxy frontend, backend, capturer}
         let(:proxy_thread) {Thread.new {proxy}}
-        let(:proxy_return) do
-          context.terminate
-          proxy_thread.join
-        end
 
         before {proxy_thread.run and sleep 0.1}
 
         it "runs indefinitely" do
           expect(proxy_thread).to be_alive
+          puts "Made it this far...."
         end
 
         it "passes from front to back" do
           front.send "Hello world!"
           expect(back.receive).to eq "Hello world!"
+          puts "Made it this far again..."
+        end
+
+        it "eats the termination exception" do
+          expect {proxy_return}.not_to raise_error
+          puts "Made it this far yet again..."
         end
 
         after {proxy_return}

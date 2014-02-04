@@ -166,6 +166,7 @@ module EZMQ
     # Closes this socket.
     def close
       destroyer.call
+      context.remove self
       @ptr = nil
     end
 
@@ -173,7 +174,7 @@ module EZMQ
     # and then close it upon termination.
     def self.finalize(ptr)
       Proc.new do
-        API::zmq_close ptr
+        API::invoke :zmq_close, ptr
       end
     end
 

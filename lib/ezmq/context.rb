@@ -1,32 +1,13 @@
+require 'monitor'
+
 require 'ezmq/api'
 require 'ezmq/loggable'
 
 module EZMQ
-  # A global 0MQ context that acts as the default container for all
-  # sockets. The Context object is created when it is referenced for the
-  # first time. Unless you have a good reason for multiple contexts you
-  # should be using this placeholder, which will never be accidentally
-  # garbage collected.
-  def self.context
-    @context ||= Context.new
-  end
-
-  # Closes every socket on the global context and then removes the context
-  # itself. The next attempt to reference {EZMQ.context} will create a new
-  # context with no current sockets.
-  # @note This method clears _only_ the global default context and its
-  # sockets. Contexts you've created yourself and assigned to variables
-  # are unaffected. (You can still close them with their own
-  # {Context#terminate} calls.)
-  def self.terminate!
-    if old_context = @context
-      @context = nil  # Clear immediately so operations in other threads force a new context
-      old_context.terminate
-    end
-  end
 
   class Context
     include Loggable
+
 
     # From include/zmq.h
     Options = {
@@ -35,13 +16,8 @@ module EZMQ
     }.freeze
 
     # The sockets attached to this context. All sockets will be closed when
-    # the context is terminated or goes out of scope, unless the `:close_sockets`
-    # is set to false on initialization.
+    # the context is terminated or goes out of scope.
     attr_reader :sockets
-
-    # If false, open sockets will not be automatically closed when the
-    # context is destroyed.
-    attr_reader :close_sockets
 
     # Creates a new 0MQ context. Hooks are also established to terminate it
     # if this Ruby wrapper goes out of memory.
@@ -50,14 +26,13 @@ module EZMQ
     # @option opts [Boolean] :close_sockets If true (default), all open sockets will be closed when the context is terminated or garbage collected.
     def initialize(opts={})
       @ptr = API::invoke :zmq_ctx_new
-      @sockets = []
+      @sockets, @socket_mutex = [], Mutex.new
 
       self.io_threads = opts[:io_threads] if opts[:io_threads]
       self.max_sockets = opts[:max_sockets] if opts[:max_sockets]
-      @close_sockets = opts.fetch :close_sockets, true
 
       # Clean up if garbage collected
-      @destroyer = self.class.finalize(@ptr, close_sockets ? @sockets : [])
+      @destroyer = self.class.finalize(@ptr, @sockets, @socket_mutex)
       ObjectSpace.define_finalizer self, @destroyer
     end
 
@@ -86,23 +61,23 @@ module EZMQ
 
     # Returns the maximum number of sockets allowed for this context.
     def max_sockets
-      API::zmq_ctx_get(self, Options[:max_sockets])
+      API::invoke :zmq_ctx_get, self, Options[:max_sockets]
     end
 
     # Sets the maximum number of sockets allowed on the context.
     def max_sockets=(val)
-      API::zmq_ctx_set(self, Options[:max_sockets], val)
+      API::invoke :zmq_ctx_set, self, Options[:max_sockets], val
     end
 
 
     # @private
     def <<(socket)
-      sockets << socket
+      socket_mutex.synchronize {sockets << socket}
     end
 
     # @private
     def remove(socket)
-      sockets.delete(socket)
+      socket_mutex.synchronize {sockets.delete(socket)}
     end
 
 
@@ -120,15 +95,18 @@ module EZMQ
 
     # Creates a routine that will safely close any sockets and terminate
     # the 0MQ context upon garbage collection.
-    def self.finalize(ptr, sockets)
+    def self.finalize(ptr, sockets, socket_mutex)
       Proc.new do
-        sockets.each &:close
-        API::zmq_ctx_destroy(ptr)
+        socket = nil
+        while socket_mutex.synchronize {socket = sockets.shift}
+          socket.close
+        end
+        API::invoke :zmq_ctx_destroy, ptr
       end
     end
 
   private
-    attr_reader :destroyer
+    attr_reader :destroyer, :socket_mutex
 
 
   end
