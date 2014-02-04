@@ -10,8 +10,16 @@ require 'ezmq'
 $:.unshift File.join(File.dirname(__FILE__), 'support')
 
 Process.setrlimit(:NOFILE, 4096)    # Don't run out of file handles
-
 Thread.abort_on_exception = true
+
+# Log testing activity if there's a log directory
+logdir = File.join(File.dirname(__FILE__), '..', 'log')
+if Dir.exist?(logdir)
+  require 'logger'
+  EZMQ.logger = Logger.new File.join(logdir, 'spec.log')
+  EZMQ.logger.level = Logger::DEBUG
+end
+
 
 RSpec.configure do |config|
   config.treat_symbols_as_metadata_keys_with_true_values = true
