@@ -39,7 +39,8 @@ module EZMQ
     attach_function :zmq_msg_more, [:pointer], :int
     attach_function :zmq_msg_close, [:pointer], :int
 
-    # Info functions
+    # Miscellaneous functions
+    attach_function :zmq_proxy, [:pointer, :pointer, :pointer], :int, :blocking => true
     attach_function :zmq_strerror, [:int], :string
 
     # Wraps 0MQ's C-based calling semantics (return a 0 on success, -1 or

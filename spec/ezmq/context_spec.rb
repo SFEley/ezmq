@@ -80,6 +80,15 @@ module EZMQ
         this = described_class.new max_sockets: 300
         expect(this.max_sockets).to eq 300
       end
+
+      it "defaults to closing sockets on termination" do
+        expect(subject.close_sockets).to be_true
+      end
+
+      it "can be set not to close sockets on termination" do
+        this = described_class.new close_sockets: false
+        expect(this.close_sockets).to be_false
+      end
     end
 
     describe "socket list" do
@@ -99,12 +108,18 @@ module EZMQ
         expect {subject.remove(socket)}.to change {subject.sockets.count}.by(-1)
       end
 
-      it "closes out when the context is finished" do
+      it "closes out when the context is terminated" do
         subject << socket
         expect(socket).to receive(:close)
         subject.terminate
       end
 
+      it "does not close out when :close_sockets is false" do
+        this = described_class.new close_sockets: false
+        this << socket
+        expect(socket).not_to receive(:close)
+        this.terminate
+      end
     end
 
   end

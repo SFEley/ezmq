@@ -1,37 +1,29 @@
 # EZMQ
 
-EZMQ is a next-generation Ruby binding for the [ZeroMQ](http://zeromq. org) messaging library. The design goal is to provide the simplest, most Rubyish interface possible on top of 0MQ's sockets. Seriously:
+EZMQ is a next-generation Ruby binding for the [ZeroMQ](http://zeromq. org) messaging library. The design goal is to provide the simplest, most Rubyish interface possible on top of 0MQ's sockets. And by "simplest" we mean:
 
 ```ruby
 require 'ezmq'
 
-alice = EZMQ::PAIR.new bind: :inproc
+alice = EZMQ::PAIR.new
 bob = EZMQ::PAIR.new connect: alice
 
 alice.send "Hello world!"
 puts bob.receive  # => "Hello world!"
 ```
 
-This example isn't as contrived as it looks. A few interesting things:
+A few interesting points:
 
-* A global 0MQ *Context* is created the first time a *Socket* needs one. It's smart enough to track and close all of its sockets if it goes out of scope or the application exits. If you need multiple contexts you can create them, but in most cases you'll never need to think about them at all.
-* You can bind and/or connect sockets on creation or at any time after. You can query the Socket object for lists of connections and bindings. 
-* Endpoints for binding can be specified as proper URIs ("tcp://192.168.100.100:9876") or you can provide shortcut symbols for certain transports:
-    * The `:inproc` shortcut creates an internal transport with an automatically generated name.
+* A global 0MQ *Context* is created the first time a *Socket* needs one. It's smart enough to track and close all of its sockets if it goes out of scope or the application exits. If you need multiple contexts you can create them, but in most cases you'll never need to refer to the context at all.
+* You can bind and/or connect sockets on creation or at any time after. 
+Addresses can be specified as URI strings ("tcp://192.168.100.100:9876") or you can provide shortcut symbols for certain transports:
+    * The `:inproc` shortcut creates an internal (thread-to-thread) transport with an automatically generated name.
     * The `:ipc` shortcut creates a Unix domain socket in a temp directory with a random unique filename.
-    * The `:tcp` shortcut binds to a system-assigned available port on all network addresses. 
-* You can connect to an endpoint by its address string or by passing a local Socket object. Passing a Socket will connect to the first "inproc://" transport it 
-finds on that socket, creating one if needed.
-* Socket options are all attributes on the *Socket* object.
-* Outgoing messages can be given as strings (single-part) or lists of 
-strings (multi-part). The strings are sent as binary bytes so encoding in 
-this direction isn't important.
-* Incoming messages appear as *Message* objects, which duck type to arrays 
-but can be coerced to strings with a user-supplied part separator
-(a la `Array#join`). Encodings can be specified globally or on a 
-per-message basis.
-* Failures from the 0MQ library raise Ruby exceptions. There's no need for
-asserts or checking error codes after each operation.
+    * The `:tcp` shortcut binds to a system-assigned port on all available addresses.
+* You can also `connect` to a local socket object, as in the above example. This will connect to the first *inproc://* binding for that socket, creating one if needed.
+* The `send` method accepts a string (single-part message) or list of strings (multi-part message). The strings are treated as binary bytes; encoding isn't important.
+* The `receive` method returns a *Message* object, which duck types fairly well as a string or an array of strings (message parts). 
+* Failures from 0MQ raise Ruby exceptions. There's no need for asserts or checking error codes after each operation.
 
 ## Compatibility
 
