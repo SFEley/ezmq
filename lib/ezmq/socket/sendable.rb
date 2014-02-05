@@ -42,12 +42,22 @@ module EZMQ
           opts = {}
         end
 
+        @partcount ||= 0
+        @more = false
+
         while part = parts.shift
+          @more = !parts.empty? || opts[:more]
           content_ptr = API::pointer_from part
           flags = 0
           flags += 1 if opts[:async]
-          flags += 2 if !parts.empty? || opts[:more]
+          flags += 2 if @more
+
           API::invoke :zmq_send, self, content_ptr, content_ptr.size, flags
+          debug do
+            msg = "Sent part #{@partcount} (#{content_ptr.size} bytes)"
+            @more ? msg + ' [MORE]' : msg
+          end
+          @partcount = (@more ? @partcount + 1 : nil)
         end
       end
 

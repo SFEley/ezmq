@@ -34,8 +34,10 @@ module EZMQ
       def receive(opts={})
         message = Message.new receive_part(opts)
         while more?
+          debug {"Received part #{message.length - 1} (#{message.last.bytesize} bytes) [MORE]"}
           message << receive_part(opts)
         end
+        debug {"Received part #{message.length - 1} (#{message.last.bytesize} bytes)"}
         message
       end
 

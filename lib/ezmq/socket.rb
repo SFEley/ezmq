@@ -1,3 +1,4 @@
+require 'ezmq/loggable'
 require 'ezmq/message'
 require 'ezmq/message_frame'
 
@@ -12,6 +13,7 @@ module EZMQ
   # for creating, configuring, binding and connecting sockets lives in
   # this class.
   class Socket
+    include Loggable
 
 
     # The parent context in which this socket was created. Defaults to
@@ -27,7 +29,7 @@ module EZMQ
     attr_reader :connections
 
     # Short name used for logging, routing, and inproc: bindings
-    attr_reader :name
+    attr_accessor :name
 
 
     # The memory pointer to the 0MQ socket object. You shouldn't need
@@ -59,14 +61,18 @@ module EZMQ
     # @option opts [Context] :context The socket's 0MQ context; defaults to EZMQ::context
     # @option opts [String, Symbol, Array<String, Symbol>] :bind One or more endpoints or endpoint shortcuts for this socket to listen on (see {#bind})
     # @option opts [String, Array<String>] :connect One or more endpoints for this socket to connect to (see {#connect})
+    # @option opts [Logger] :logger Object to receive logging messages (defaults to `EZMQ.logger`)
     # @option opts [String] :name Simple human name for this socket. Used in logging, listings, automatic _inproc_ bindings and routing identifiers
     def initialize(opts={})
-      @endpoints, @connections = [], []
-      @context = opts.fetch(:context) {EZMQ.context}
-      @name = opts.fetch(:name) {nextname}
+      self.logger = opts.fetch(:logger) {EZMQ.logger}
+      self.name = opts.fetch(:name) {nextname}
 
+      @endpoints, @connections = [], []
+
+      @context = opts.fetch(:context) {EZMQ.context}
       @ptr = API::invoke :zmq_socket, context, self.class
       context << self
+      info "Socket created on #{context}."
 
       # Clean up if garbage collected
       @destroyer = self.class.finalize(@ptr)
@@ -127,6 +133,13 @@ module EZMQ
       addresses.each do |address|
         API::invoke :zmq_bind, self, parse_for_binding(address)
         endpoints << last_endpoint
+        info do
+          if address == last_endpoint
+            "Bound to #{address}"
+          else
+            "Bound to '#{address}' as #{last_endpoint}"
+          end
+        end
       end
       endpoints
     end
@@ -158,16 +171,17 @@ module EZMQ
         endpoint = parse_for_connecting(address)
         API::invoke :zmq_connect, self, endpoint
         connections << endpoint
+        info "Connected to #{endpoint}"
       end
       connections
     end
-
 
     # Closes this socket.
     def close
       destroyer.call
       context.remove self
       @ptr = nil
+      info "Socket closed."
     end
 
     # Creates a routine that will set a timeout period on a given socket
@@ -182,7 +196,7 @@ module EZMQ
     attr_reader :destroyer
 
     # Simple counter to ensure sockets are distinguishable
-    @@socketnum = 0
+    @@socketnum ||= 0
 
     def nextname
       "#{type}-#{@@socketnum += 1}"

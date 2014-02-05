@@ -45,6 +45,7 @@ module EZMQ
         filters.each do |filter|
           self.subscribe = filter
           self.subscriptions << filter
+          info "Subscribed to '#{filter}'"
         end
       end
 
@@ -58,6 +59,7 @@ module EZMQ
         filters.each do |filter|
           self.unsubscribe = filter
           self.subscriptions.delete(filter)
+          info "Unsubscribed from '#{filter}'"
         end
       end
 

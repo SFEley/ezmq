@@ -10,6 +10,7 @@ module EZMQ
   def self.logger
     @logger ||= NullLogger.new
   end
+
   def self.logger=(val)
     @logger = val || NullLogger.new
   end
@@ -103,22 +104,32 @@ module EZMQ
   # stream watched by a human rather than disk, and disable it when
   # no longer needed.
   module Loggable
+    # Logger for 0MQ events on this object. Defaults to {EZMQ.logger}
+    # if not overridden.
+    attr_accessor :logger
 
-    # @!attribute [rw] logger
-    #   Logger for 0MQ events on this object. Defaults to {EZMQ.logger}
-    #   if not overridden.
-    def logger
-      @logger || EZMQ.logger
+    def debug(msg=nil, &block)
+      logger.add Logger::DEBUG, msg, name, &block
     end
-    attr_writer :logger
 
+    def info(msg=nil, &block)
+      logger.add Logger::INFO, msg, name, &block
+    end
 
+    def warn(msg=nil, &block)
+      logger.add Logger::WARN, msg, name, &block
+    end
+
+    def error(msg=nil, &block)
+      logger.add Logger::ERROR, msg, name, &block
+    end
   end
 
   # @private
   # @see http://hawkins.io/2013/08/using-the-ruby-logger/
   class NullLogger < ::Logger
     def initialize(*args)
+      self.level = Logger::UNKNOWN
     end
 
     def add(*args, &block)

@@ -19,13 +19,23 @@ module EZMQ
     # the context is terminated or goes out of scope.
     attr_reader :sockets
 
+    # A human identifier for this context. Only used for logging.
+    attr_accessor :name
+    alias_method :to_s, :name
+
     # Creates a new 0MQ context. Hooks are also established to terminate it
     # if this Ruby wrapper goes out of memory.
-    # @option opts [Integer] :io_threads The size of the 0MQ thread pool for this context.
-    # @option opts [Integer] :max_sockets The maximum number of sockets allowed for this context.
-    # @option opts [Boolean] :close_sockets If true (default), all open sockets will be closed when the context is terminated or garbage collected.
+    # @option opts [Integer] :io_threads The size of the 0MQ thread pool for this context
+    # @option opts [Integer] :max_sockets The maximum number of sockets allowed for this context
+    # @option opts [Logger] :logger Object to receive logging messages (defaults to `EZMQ.logger`)
+    # @option opts [String] :name Identifies this context for logging and socket ownership (defaults to 'Context-' plus an auto-incrementing number)
     def initialize(opts={})
+      self.logger = opts.fetch(:logger) {EZMQ.logger}
+      self.name = opts.fetch(:name) {nextname}
+
       @ptr = API::invoke :zmq_ctx_new
+      info "New context created."
+
       @sockets, @socket_mutex = [], Mutex.new
 
       self.io_threads = opts[:io_threads] if opts[:io_threads]
@@ -80,18 +90,16 @@ module EZMQ
       socket_mutex.synchronize {sockets.delete(socket)}
     end
 
-
-
     # Closes any sockets and terminates the 0MQ context. Attempting to
     # access the context or any sockets after this will throw an exception.
     # @note This also occurs when the Context object is garbage collected.
     def terminate
       destroyer.call
       @ptr = nil
+      info "Context destroyed."
     end
     alias_method :destroy, :terminate
     alias_method :close, :terminate
-
 
     # Creates a routine that will safely close any sockets and terminate
     # the 0MQ context upon garbage collection.
@@ -108,6 +116,11 @@ module EZMQ
   private
     attr_reader :destroyer, :socket_mutex
 
+    @@contextnum ||= 0
+
+    def nextname
+      "Context-#{@@contextnum += 1}"
+    end
 
   end
 end

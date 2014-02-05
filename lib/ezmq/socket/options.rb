@@ -86,6 +86,7 @@ module EZMQ
           val_pointer.write_uint64(val)
         end
         API::invoke :zmq_setsockopt, self, option, val_pointer, val_pointer.size
+        debug "Option '#{name}' set to #{val}"
         val
       end
       aliases.each {|a| alias_method "#{a}=".to_sym, "#{name}=".to_sym}
