@@ -31,25 +31,19 @@ module EZMQ
     # Short name used for logging, routing, and inproc: bindings
     attr_accessor :name
 
-
     # The memory pointer to the 0MQ socket object. You shouldn't need
     # to use this directly unless you're doing low-level work outside of
-    # the EZMQ interface.
-    # @raise [SocketClosed] if the socket has already been destroyed
-    def ptr
-      @ptr or raise SocketClosed
-    end
+    # the EZMQ interface. Nil if the socket has been closed or is not
+    # yet initialized.
+    attr_reader :ptr
 
     # The FFI memory pointer to the 0MQ socket object. Differs from the
-    # #ptr method in that it returns a null pointer if the socket has
-    # been destroyed rather than throwing an exception. Enables API
-    # functions to accept this object wherever a socket pointer would
-    # be needed.
+    # #ptr attribute in that it returns a null pointer if the socket has
+    # been destroyed rather than nil. Enables API functions to accept this
+    # object wherever a socket pointer would be needed.
     # @return [FFI::Pointer]
     def to_ptr
-      ptr
-    rescue SocketClosed
-      FFI::Pointer::NULL
+      ptr or FFI::Pointer::NULL
     end
 
 
@@ -74,9 +68,9 @@ module EZMQ
       context << self
       info "Socket created on #{context}."
 
-      # Clean up if garbage collected
-      @destroyer = self.class.finalize(@ptr)
-      ObjectSpace.define_finalizer self, @destroyer
+      # Clean up when garbage collected
+      @destroyer = self.class.finalize(ptr)
+      ObjectSpace.define_finalizer self, destroyer
 
       # Set other options
       opts.each do |key, value|
@@ -176,13 +170,19 @@ module EZMQ
       connections
     end
 
-    # Closes this socket.
+    # Closes this socket and removes it from the context list.
     def close
       destroyer.call
-      context.remove self
-      @ptr = nil
+      @context, @ptr = nil, nil
+      ObjectSpace.undefine_finalizer(self)
       info "Socket closed."
     end
+
+    # True if the socket has been closed in 0mq.
+    def closed?
+      ptr.nil?
+    end
+
 
     # Creates a routine that will set a timeout period on a given socket
     # and then close it upon termination.

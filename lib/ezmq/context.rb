@@ -2,6 +2,7 @@ require 'monitor'
 
 require 'ezmq/api'
 require 'ezmq/loggable'
+require 'ezmq/context/socket_list'
 
 module EZMQ
 
@@ -36,13 +37,13 @@ module EZMQ
       @ptr = API::invoke :zmq_ctx_new
       info "New context created."
 
-      @sockets, @socket_mutex = [], Mutex.new
+      @sockets = SocketList.new
 
       self.io_threads = opts[:io_threads] if opts[:io_threads]
       self.max_sockets = opts[:max_sockets] if opts[:max_sockets]
 
       # Clean up if garbage collected
-      @destroyer = self.class.finalize(@ptr, @sockets, @socket_mutex)
+      @destroyer = self.class.finalize(@ptr, @sockets)
       ObjectSpace.define_finalizer self, @destroyer
     end
 
@@ -82,12 +83,7 @@ module EZMQ
 
     # @private
     def <<(socket)
-      socket_mutex.synchronize {sockets << socket}
-    end
-
-    # @private
-    def remove(socket)
-      socket_mutex.synchronize {sockets.delete(socket)}
+      sockets << socket
     end
 
     # Closes any sockets and terminates the 0MQ context. Attempting to
@@ -103,18 +99,15 @@ module EZMQ
 
     # Creates a routine that will safely close any sockets and terminate
     # the 0MQ context upon garbage collection.
-    def self.finalize(ptr, sockets, socket_mutex)
+    def self.finalize(ptr, sockets)
       Proc.new do
-        socket = nil
-        while socket_mutex.synchronize {socket = sockets.shift}
-          socket.close
-        end
+        sockets.each {|socket| socket.close}
         API::invoke :zmq_ctx_destroy, ptr
       end
     end
 
   private
-    attr_reader :destroyer, :socket_mutex
+    attr_reader :destroyer
 
     @@contextnum ||= 0
 

@@ -1,6 +1,6 @@
 require 'spec_helper'
 module EZMQ
-  describe EZMQ, :focus do
+  describe EZMQ do
     it "has a global linger value by default" do
       expect(described_class.linger).to be > 0
     end
@@ -24,34 +24,34 @@ module EZMQ
         expect(described_class.context).to receive(:terminate).and_call_original
         described_class.terminate!
       end
-
-      after {described_class.terminate!}
     end
 
     describe "::proxy method" do
       # Using DEALERs instead of PAIRs because they're more typical in a
       # context connection and termination sense.
       let(:context) {Context.new}
-      let!(:front) {DEALER.new :context => context}
-      let(:frontend) {DEALER.new :connect => front, :context => context}
-      let!(:back) {DEALER.new :context => context}
-      let(:backend) {DEALER.new :connect => back, :context => context}
-      let(:captured) {DEALER.new :context => context}
-      let(:capturer) {DEALER.new :connect => captured, :context => context}
+      let!(:front) {DEALER.new :context => context, :name => 'front'}
+      let(:frontend) {DEALER.new :connect => front, :context => context, :name => 'frontend'}
+      let!(:back) {DEALER.new :context => context, :name => 'back'}
+      let(:backend) {DEALER.new :connect => back, :context => context, :name => 'backend'}
+      let(:captured) {DEALER.new :context => context, :name => 'captured'}
+      let(:capturer) {DEALER.new :connect => captured, :context => context, :name => 'capturer'}
 
-      before do
-        frontend.send "Test One"
-        backend.send "Test Two"
-        expect(front.receive).to eq "Test One"
-        expect(back.receive).to eq "Test Two"
-      end
+      context "arguments" do
+        before do
+          frontend.send "Test One"
+          backend.send "Test Two"
+          expect(front.receive).to eq "Test One"
+          expect(back.receive).to eq "Test Two"
+        end
 
-      it "requires a frontend" do
-        expect {described_class.proxy}.to raise_error ArgumentError
-      end
+        it "requires a frontend" do
+          expect {described_class.proxy}.to raise_error ArgumentError
+        end
 
-      it "requires a backend" do
-        expect {described_class.proxy frontend}.to raise_error ArgumentError
+        it "requires a backend" do
+          expect {described_class.proxy frontend}.to raise_error ArgumentError
+        end
       end
 
       context "in its own thread" do
@@ -70,18 +70,27 @@ module EZMQ
 
         it "runs indefinitely" do
           expect(proxy_thread).to be_alive
-          puts "Made it this far...."
         end
 
         it "passes from front to back" do
           front.send "Hello world!"
           expect(back.receive).to eq "Hello world!"
-          puts "Made it this far again..."
+        end
+
+        it "passes from back to front" do
+          back.send "!dlrow olleH"
+          expect(front.receive).to eq "!dlrow olleH"
+        end
+
+        it "captures in both directions" do
+          front.send "Aloha!"
+          back.send "!aholA"
+          expect(captured.receive).to eq "Aloha!"
+          expect(captured.receive).to eq "!aholA"
         end
 
         it "eats the termination exception" do
           expect {proxy_return}.not_to raise_error
-          puts "Made it this far yet again..."
         end
 
         after {proxy_return}

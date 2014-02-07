@@ -14,10 +14,6 @@ module EZMQ
       expect(this.context).to eq my_context
     end
 
-    it "attaches to the context" do
-      expect(subject.context.sockets).to include(subject)
-    end
-
     it "has an associated socket object" do
       expect(subject.ptr).to be_a(FFI::Pointer)
     end
@@ -148,7 +144,7 @@ module EZMQ
       end
 
       it "can be bound on creation" do
-        this = described_class.new bind: ["inproc://thisone"]
+        this = described_class.new bind: ["inproc://this_#{described_class}"]
         expect(this.endpoint).to match %r[^inproc://]
       end
 
@@ -202,24 +198,20 @@ module EZMQ
     end
 
 
-    describe "cleanup" do
-      before(:each) do
-        ObjectSpace.garbage_collect # Ensure pristine GC state every time
-      end
-
+    describe "on cleanup" do
       it "can close itself" do
-        expect(API).to receive(:zmq_close).at_least(:once).and_call_original
+        expect(API).to receive(:zmq_close).with(subject.ptr).and_call_original
         subject.close
       end
 
-      it "closes its 0MQ socket if garbage collected" do
+      it "closes if garbage collected" do
         weakref, gc_counter = nil, 0
-        expect(API).to receive(:zmq_close).at_least(:once).and_call_original
+        # expect(API).to receive(:zmq_ctx_destroy).and_call_original
         begin
           weakref = WeakRef.new(described_class.new)
+          expect(API).to receive(:zmq_close).with(weakref.ptr).and_call_original
         end
-        EZMQ.terminate!
-        ObjectSpace.garbage_collect while weakref.weakref_alive? && (gc_counter += 1) < 10
+        ObjectSpace.garbage_collect
       end
 
       it "returns a null pointer if cast after closing" do

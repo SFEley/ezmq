@@ -84,19 +84,14 @@ module EZMQ
 
     describe "socket list" do
 
-      let(:socket) {double('Socket')}
+      let(:socket) {double('Socket', :closed? => false)}
 
       it "begins empty" do
-        expect(subject.sockets).to be_empty
+        expect(subject).to have(0).sockets
       end
 
       it "can be added to" do
         expect {subject << socket}.to change {subject.sockets.count}.by(1)
-      end
-
-      it "can be removed" do
-        subject << socket
-        expect {subject.remove(socket)}.to change {subject.sockets.count}.by(-1)
       end
 
       it "closes out when the context is terminated" do

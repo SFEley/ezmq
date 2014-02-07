@@ -19,6 +19,7 @@ if Dir.exist?(logdir)
   EZMQ.logger = Logger.new File.join(logdir, 'spec.log')
   EZMQ.logger.level = Logger::DEBUG
 end
+EZMQ.linger = 10
 
 
 RSpec.configure do |config|
@@ -33,6 +34,6 @@ RSpec.configure do |config|
   config.order = 'random'
 
   config.around(:each) do |example|
-    Timeout::timeout(3) {example.run}
+    Timeout::timeout(10) {example.run}
   end
 end

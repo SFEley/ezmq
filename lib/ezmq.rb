@@ -70,8 +70,8 @@ module EZMQ
     # @param capture [Socket] Optional socket that receives messages
     def proxy(frontend, backend, capture=nil)
       API::invoke :zmq_proxy, frontend, backend, capture
-    rescue EZMQ::ETERM
-
+    # rescue EZMQ::ETERM
+    rescue EZMQ::ENOTSOCK
     end
   private
     attr_reader :global_mutex
