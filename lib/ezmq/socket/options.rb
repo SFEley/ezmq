@@ -51,12 +51,15 @@ module EZMQ
         size_pointer = FFI::MemoryPointer.new(:ssize_t)
         size_pointer.write_int(val_pointer.size)
         API::invoke :zmq_getsockopt, self, option, val_pointer, size_pointer
-        case type
+        value = case type
           when :int then val_pointer.read_int
           when :char then val_pointer.read_string(size_pointer.read_int).chomp("\x00")
           when :int64 then val_pointer.read_int64
           when :uint64 then val_pointer.read_uint64
         end
+        val_pointer.free
+        size_pointer.free
+        value
       end
       aliases.each {|a| alias_method a, name}
     end
@@ -87,6 +90,7 @@ module EZMQ
         end
         API::invoke :zmq_setsockopt, self, option, val_pointer, val_pointer.size
         debug "Option '#{name}' set to #{val}"
+        val_pointer.free
         val
       end
       aliases.each {|a| alias_method "#{a}=".to_sym, "#{name}=".to_sym}

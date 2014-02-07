@@ -2,7 +2,6 @@ require 'monitor'
 
 require 'ezmq/api'
 require 'ezmq/loggable'
-require 'ezmq/context/socket_list'
 
 module EZMQ
 
