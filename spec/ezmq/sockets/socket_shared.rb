@@ -4,6 +4,7 @@ require 'ezmq/sockets/send_shared'
 
 module EZMQ
   shared_examples "every socket" do
+
     it "defaults to the global context" do
       expect(subject.context).to eq EZMQ.context
     end
@@ -204,14 +205,10 @@ module EZMQ
         subject.close
       end
 
-      it "closes if garbage collected" do
-        weakref, gc_counter = nil, 0
-        # expect(API).to receive(:zmq_ctx_destroy).and_call_original
-        begin
-          weakref = WeakRef.new(described_class.new)
-          expect(API).to receive(:zmq_close).with(weakref.ptr).and_call_original
-        end
-        ObjectSpace.garbage_collect
+      it "closes if its context is shut down" do
+        allow(API).to receive(:zmq_close).and_call_original
+        expect(API).to receive(:zmq_close).with(subject.ptr).and_call_original
+        subject.context.terminate
       end
 
       it "returns a null pointer if cast after closing" do

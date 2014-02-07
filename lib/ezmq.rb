@@ -26,7 +26,13 @@ module EZMQ
     # should be using this placeholder, which will never be accidentally
     # garbage collected.
     def context
-      global_mutex.synchronize {@context ||= Context.new}
+      global_mutex.synchronize do
+        if @context.nil? || @context.closed?
+          @context = Context.new
+        else
+          @context
+        end
+      end
     end
 
     # Closes every socket on the global context and then removes the context

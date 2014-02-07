@@ -173,10 +173,6 @@ module EZMQ
 
     describe "cleanup" do
 
-      before(:each) do
-        ObjectSpace.garbage_collect # Ensure pristine GC state every time
-      end
-
       it "can close itself" do
         expect(API).to receive(:zmq_msg_close).at_least(:once).and_call_original
         subject.close

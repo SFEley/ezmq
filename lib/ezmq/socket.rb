@@ -68,10 +68,6 @@ module EZMQ
       context << self
       info "Socket created on #{context}."
 
-      # Clean up when garbage collected
-      @destroyer = self.class.finalize(ptr)
-      ObjectSpace.define_finalizer self, destroyer
-
       # Set other options
       opts.each do |key, value|
         method = "#{key}=".to_sym
@@ -172,24 +168,16 @@ module EZMQ
 
     # Closes this socket and removes it from the context list.
     def close
-      destroyer.call
-      @context, @ptr = nil, nil
-      ObjectSpace.undefine_finalizer(self)
-      info "Socket closed."
+      unless closed?
+        API::invoke :zmq_close, ptr
+        @context, @ptr = nil, nil
+        info "Socket closed."
+      end
     end
 
     # True if the socket has been closed in 0mq.
     def closed?
       ptr.nil?
-    end
-
-
-    # Creates a routine that will set a timeout period on a given socket
-    # and then close it upon termination.
-    def self.finalize(ptr)
-      Proc.new do
-        API::invoke :zmq_close, ptr
-      end
     end
 
   private

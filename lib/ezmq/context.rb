@@ -16,13 +16,16 @@ module EZMQ
       max_sockets:  2
     }.freeze
 
-    # The sockets attached to this context. All sockets will be closed when
-    # the context is terminated or goes out of scope.
-    attr_reader :sockets
 
     # A human identifier for this context. Only used for logging.
     attr_accessor :name
     alias_method :to_s, :name
+
+    # The memory pointer to the 0MQ context object. You shouldn't need
+    # to use this directly unless you're doing low-level work outside of
+    # the EZMQ interface. Nil if the context has been closed or is not
+    # yet initialized.
+    attr_reader :ptr
 
     # Creates a new 0MQ context. Hooks are also established to terminate it
     # if this Ruby wrapper goes out of memory.
@@ -37,13 +40,13 @@ module EZMQ
       @ptr = API::invoke :zmq_ctx_new
       info "New context created."
 
-      @sockets = SocketList.new
+      @socket_list, @socket_mutex = [], Mutex.new
 
       self.io_threads = opts[:io_threads] if opts[:io_threads]
       self.max_sockets = opts[:max_sockets] if opts[:max_sockets]
 
       # Clean up if garbage collected
-      @destroyer = self.class.finalize(@ptr, @sockets)
+      @destroyer = self.class.finalize(ptr, socket_list)
       ObjectSpace.define_finalizer self, @destroyer
     end
 
@@ -80,10 +83,17 @@ module EZMQ
       API::invoke :zmq_ctx_set, self, Options[:max_sockets], val
     end
 
+    # The active sockets attached to this context. All sockets will be
+    # closed when the context is terminated or goes out of scope.
+    def sockets
+      socket_mutex.synchronize do
+        socket_list.delete_if {|socket| socket.closed?}
+      end
+    end
 
     # @private
     def <<(socket)
-      sockets << socket
+      socket_mutex.synchronize {socket_list << socket}
     end
 
     # Closes any sockets and terminates the 0MQ context. Attempting to
@@ -97,6 +107,11 @@ module EZMQ
     alias_method :destroy, :terminate
     alias_method :close, :terminate
 
+    # True if the context has been closed in 0mq.
+    def closed?
+      ptr.nil?
+    end
+
     # Creates a routine that will safely close any sockets and terminate
     # the 0MQ context upon garbage collection.
     def self.finalize(ptr, sockets)
@@ -107,7 +122,7 @@ module EZMQ
     end
 
   private
-    attr_reader :destroyer
+    attr_reader :destroyer, :socket_list, :socket_mutex
 
     @@contextnum ||= 0
 
