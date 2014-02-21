@@ -42,5 +42,11 @@ module EZMQ
       let(:multi_received) {['myself', ''] + multi_sent}
     end
 
+    it "can get and set whether to fail on unreachable destinations" do
+      expect(subject).not_to be_fail_on_unreachable
+      subject.fail_on_unreachable = true
+      expect(subject).to be_fail_on_unreachable
+    end
+
   end
 end

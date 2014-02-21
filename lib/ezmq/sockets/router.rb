@@ -12,12 +12,8 @@ module EZMQ
   #   This message part *must* match the identifying string of a socket
   #   known to the {ROUTER}. The identified socket will receive the message.
   #   If the identifier is unknown or the socket is no longer connected, the
-  #   error handling behavior depends on the value of the {#mandatory}
-  #   attribute:
-  #   * If {#mandatory} is set to 0 or *false* (the default), unsendable
-  #     messages will be silently dropped.
-  #   * If {#mandatory} is set to 1 or *true*, an {EHOSTUNREACHABLE}
-  #     exception will be raised.
+  #   error handling behavior depends on the value of the {#fail_on_unreachable}
+  #   attribute.
   #
   # The primary use case for this socket is to allow request messages from
   # a requester (probably a {REQ} socket) to be conveyed across intermediate
@@ -35,5 +31,32 @@ module EZMQ
   class ROUTER < Socket
     include Receivable
     include Sendable
+
+    # @!attribute [rw] fail_on_unreachable
+    #   Represents the strangely named and strangely write-only 0mq
+    #   `ROUTER_MANDATORY` option. If set to 1 or *true*, messages with
+    #   an identifier that is unknown to the socket or identifying a
+    #   peer that is no longer connected will raise an {EHOSTUNREACHABLE}
+    #   exception.  Defaults to 0 (false), meaning messages that cannot
+    #   be routed will be silently dropped.
+    def fail_on_unreachable=(val)
+      self.router_mandatory = val
+      @fail_on_unreachable = case val
+        when false then 0
+        when true then 1
+        else val
+      end
+    end
+
+    def fail_on_unreachable
+      @fail_on_unreachable ||= 0
+    end
+
+    def fail_on_unreachable?
+      fail_on_unreachable == 1
+    end
+
+  protected
+    set_option :router_mandatory
   end
 end

@@ -13,6 +13,12 @@ module EZMQ
       end
     end
 
+    it "can get and set its verbosity" do
+      expect(subject).not_to be_verbose
+      subject.verbose = true
+      expect(subject).to be_verbose
+    end
+
     describe "subscription messaging" do
       let(:received) {[]}
 
@@ -62,13 +68,6 @@ module EZMQ
         expect(other.receive).to eq 'aaaa'
         expect(other.receive).to eq 'dcba'
       end
-
-
-
-
-
-
-
     end
 
   end

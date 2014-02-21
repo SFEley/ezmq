@@ -14,4 +14,7 @@ guard :rspec,
   watch(%r{^lib/(.+)\.rb$})     { |m| "spec/#{m[1]}_spec.rb" }
   watch('spec/spec_helper.rb')  { "spec" }
   watch(%r{^spec/support/.*})  { "spec" }
+
+  # Weird EZMQ-specific directories
+  watch(%r{^lib/ezmq/socket/(.+)\.rb$})  { |m| "spec/ezmq/sockets"}
 end

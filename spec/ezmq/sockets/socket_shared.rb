@@ -100,6 +100,96 @@ module EZMQ
         expect(subject.receive_timeout).to eq -1
         expect {subject.receive_timeout = 2000}.to change {subject.receive_timeout}.by 2001
       end
+
+      it "can get and set the thread affinity" do
+        expect(subject.affinity).to eq 0
+        expect {subject.affinity=4}.to change {subject.affinity}.by 4
+      end
+
+      it "can get and set the multicast data rate" do
+        expect(subject.rate).to eq 100
+        expect {subject.rate=180}.to change {subject.rate}.by 80
+      end
+
+      it "can get and set the multicast recovery interval" do
+        expect(subject.recovery_interval).to eq 10_000
+        expect {subject.recovery_interval=1500}.to change {subject.recovery_interval}.by -8500
+      end
+
+      it "can get and set the send buffer size" do
+        expect(subject.send_buffer).to eq 0
+        expect {subject.send_buffer=2400}.to change {subject.send_buffer}.by 2400
+      end
+
+      it "can get and set the receive buffer size" do
+        expect(subject.receive_buffer).to eq 0
+        expect {subject.receive_buffer=2400}.to change {subject.receive_buffer}.by 2400
+      end
+
+      it "can get and set the minimum reconnect interval" do
+        expect(subject.reconnect_interval).to eq 100
+        expect {subject.reconnect_interval=600}.to change {subject.reconnect_interval}.by 500
+      end
+
+      it "can get and set the maximum reconnect interval" do
+        expect(subject.reconnect_interval_max).to eq 0
+        expect {subject.reconnect_interval_max=300000}.to change {subject.reconnect_interval_max}.by 300000
+      end
+
+      it "can get and set the maximum message size" do
+        expect(subject.max_message_size).to eq -1
+        expect {subject.max_message_size=1024}.to change {subject.max_message_size}.by 1025
+      end
+
+      it "can get and set the multicast hops" do
+        expect(subject.multicast_hops).to eq 1
+        expect {subject.multicast_hops=10}.to change {subject.multicast_hops}.by 9
+      end
+
+      it "can get and set whether the socket is IPV4 only" do
+        expect(subject.ipv4_only).to eq 1
+        expect(subject).to be_ipv4_only
+        subject.ipv4_only = false
+        expect(subject.ipv4_only).to eq 0
+        expect(subject).not_to be_ipv4_only
+      end
+
+      it "can get and set whether to delay attaching on connect" do
+        expect(subject.delay_attach_on_connect).to eq 0
+        expect(subject).not_to be_delay_attach_on_connect
+        subject.delay_attach_on_connect = true
+        expect(subject.delay_attach_on_connect).to eq 1
+        expect(subject).to be_delay_attach_on_connect
+      end
+
+      it "can get and set TCP keepalive" do
+        expect(subject.tcp_keepalive).to eq -1
+        expect {subject.tcp_keepalive=1}.to change {subject.tcp_keepalive}.by 2
+      end
+
+      it "can get and set TCP keepalive idle time" do
+        expect(subject.tcp_keepalive_idle).to eq -1
+        expect {subject.tcp_keepalive_idle=600}.to change {subject.tcp_keepalive_idle}.by 601
+      end
+
+      it "can get and set the TCP keepalive interval" do
+        expect(subject.tcp_keepalive_interval).to eq -1
+        expect {subject.tcp_keepalive_interval=10}.to change {subject.tcp_keepalive_interval}.by 11
+      end
+
+      it "can get and set the TCP keepalive count" do
+        expect(subject.tcp_keepalive_count).to eq -1
+        expect {subject.tcp_keepalive_count=20}.to change {subject.tcp_keepalive_count}.by 21
+      end
+
+      it "can get, set, and clear TCP accept filters" do
+        expect(subject.tcp_accept_filters).to be_empty
+        subject.tcp_accept_filter "192.168.0.0/16"
+        expect(subject.tcp_accept_filters).to eq ['192.168.0.0/16']
+        subject.tcp_accept_filter nil
+        expect(subject.tcp_accept_filters).to be_empty
+      end
+
     end
 
     describe "binding" do

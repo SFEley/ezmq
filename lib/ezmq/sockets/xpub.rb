@@ -21,10 +21,29 @@ module EZMQ
     include Sendable
     include Receivable
 
-    # @!attribute [w] verbose
+
+    # @!attribute [rw] verbose
     #   Set to _true_ or 1 to receive all subscribe/unsubscribe messages
     #   including duplicates. Defaults to 0 (false), dropping duplicates.
-    set_option :xpub_verbose, :verbose
+    def verbose=(val)
+      self.xpub_verbose = val
+      @verbose = case val
+        when false then 0
+        when true then 1
+        else val
+      end
+    end
+
+    def verbose
+      @verbose ||= 0
+    end
+
+    def verbose?
+      verbose == 1
+    end
+
+  protected
+    set_option :xpub_verbose
 
   end
 end

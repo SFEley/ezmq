@@ -75,22 +75,26 @@ module EZMQ
           val = 0
         end
 
-        case type
-        when :int
-          val_pointer = FFI::MemoryPointer.new(:int)
-          val_pointer.write_int(val)
-        when :char
-          val_pointer = API.pointer_from(val)
-        when :int64
-          val_pointer = FFI::MemoryPointer.new(:int64)
-          val_pointer.write_int64(val)
-        when :uint64
-          val_pointer = FFI::MemoryPointer.new(:uint64)
-          val_pointer.write_uint64(val)
+        if val.nil?     # Pass a null pointer on nil regardless of type
+          API::invoke :zmq_setsockopt, self, option, FFI::Pointer::NULL, 0
+        else
+          case type
+          when :int
+            val_pointer = FFI::MemoryPointer.new(:int)
+            val_pointer.write_int(val)
+          when :char
+            val_pointer = API.pointer_from(val)
+          when :int64
+            val_pointer = FFI::MemoryPointer.new(:int64)
+            val_pointer.write_int64(val)
+          when :uint64
+            val_pointer = FFI::MemoryPointer.new(:uint64)
+            val_pointer.write_uint64(val)
+          end
+          API::invoke :zmq_setsockopt, self, option, val_pointer, val_pointer.size
+          val_pointer.free
         end
-        API::invoke :zmq_setsockopt, self, option, val_pointer, val_pointer.size
         debug "Option '#{name}' set to #{val}"
-        val_pointer.free
         val
       end
       aliases.each {|a| alias_method "#{a}=".to_sym, "#{name}=".to_sym}
@@ -139,15 +143,15 @@ module EZMQ
     # @!attribute [rw] send_limit
     #   The high water mark for outbound messages. This is a hard limit on
     #   the maximum number of outstanding messages that can be queued for
-    #   any single peer. Changes to this value will only take effect for
-    #   *new* socket connections. Defaults to 1000.
+    #   any single peer. Changes apply to new connections or bindings only.
+    #   Defaults to 1000.
     socket_option :sndhwm, :send_limit
 
     # @!attribute [rw] receive_limit
     #   The high water mark for inbound messages. This is a hard limit on
     #   the maximum number of received messages that can be queued from
-    #   any single peer. Changes to this value will only take effect for
-    #   *new* socket connections. Defaults to 1000.
+    #   any single peer. Changes apply to new connections or bindings only.
+    #   Defaults to 1000.
     socket_option :rcvhwm, :receive_limit
 
     # @!attribute [rw] send_timeout
@@ -155,7 +159,8 @@ module EZMQ
     #   exception after that many milliseconds if the message cannot be sent.
     #   If set to 0, the socket will always raise {EAGAIN} if the message
     #   cannot be sent immediately. If set to -1, the socket will block
-    #   indefinitely until the message can be sent. Defaults to -1.
+    #   indefinitely until the message can be sent. Changes apply to new
+    #   connections or bindings only. Defaults to -1.
     socket_option :sndtimeo, :send_timeout
 
     # @!attribute [rw] receive_timeout
@@ -163,9 +168,159 @@ module EZMQ
     #   exception after that milliseconds if there are no messages to receive.
     #   If set to 0, the socket will always raise {EAGAIN} if there are no
     #   messages waiting. If set to -1, the socket will block indefinitely
-    #   until a message is received. Default to -1.
+    #   until a message is received. Changes apply to new connections or
+    #   bindings only. Defaults to -1.
     socket_option :rcvtimeo, :receive_timeout
 
+    # @!attribute [rw] affinity
+    #   A bitmask declaring which of the context's I/O threads should
+    #   handle this socket's messaging. The lowest bit corresponds to
+    #   thread 1 in the context's thread pool, the second lowest bit to
+    #   thread 2, and so forth. This is an advanced option for low-level
+    #   performance tuning; most users should stick with the default value
+    #   of 0, which distributes socket traffic across the context's pool.
+    #   @see Context#io_threads
+    socket_option :affinity
 
+    # @!attribute [rw] rate
+    #   The maximum send or receive data rate for multicast transports
+    #   (i.e. **pgm://** or **epgm://**) in kilobits per second. Does not
+    #   affect other transport types. Changes apply to new connections or
+    #   bindings only. Defaults to 100.
+    socket_option :rate
+
+    # @!attribute [rw] recovery_interval
+    #   For multicast transports only (**pgm://** and **epgm://**), the
+    #   maximum time in milliseconds that a receiver can be missing before
+    #   data is lost and will not be resent. Changes apply to new connections
+    #   or bindings only. Defaults to 10,000 (10 seconds).
+    socket_option :recovery_ivl, :recovery_interval
+
+    # @!attribute [rw] send_buffer
+    #   The transmit buffer size in bytes for underlying network sockets. A
+    #   value of 0 will use the operating system default. Changes apply to
+    #   new connections or bindings only. Defaults to 0.
+    socket_option :sndbuf, :send_buffer
+
+    # @!attribute [rw] receive_buffer
+    #   The receive buffer size in bytes for underlying network sockets. A
+    #   value of 0 will use the operating system default. Changes apply to
+    #   new connections or bindings only. Defaults to 0.
+    socket_option :rcvbuf, :receive_buffer
+
+    # @!attribute [rw] reconnect_interval
+    #   The waiting time in milliseconds between reconnection attempts when
+    #   a network connection is broken. By default the waiting time does
+    #   not change between connection attempts; for exponential backoff,
+    #   also set the {#reconnect_interval_max} attribute. Changes apply to
+    #   new connections only. Defaults to 100.
+    socket_option :reconnect_ivl, :reconnect_interval
+
+    # @!attribute [rw] reconnect_interval_max
+    #   If greater than {#reconnect_interval}, enables exponential backoff
+    #   for network reconnections (i.e., each subsequent attempt doubles the
+    #   time between attempts) and represents the *maximum* waiting time in
+    #   milliseconds. Changes apply to new connections only.
+    #   Defaults to 0 (no exponential backoff).
+    socket_option :reconnect_ivl_max, :reconnect_interval_max
+
+    # @!attribute [rw] max_message_size
+    #   The maximum allowed size in bytes for inbound messages. Peers
+    #   sending larger messages will be disconnected. Changes apply to
+    #   new connections or bindings only. Defaults to -1 (no limit).
+    socket_option :maxmsgsize, :max_message_size
+
+    # @!attribute [rw] multicast_hops
+    #   For multicast transports only (**pgm://** or **epgm://**), the
+    #   the packet time-to-live value. Changes apply to new connections
+    #   or bindings only. Defaults to 1, meaning multicast messages will
+    #   not leave the local network.
+    socket_option :multicast_hops
+
+    # @!attribute [rw] ipv4_only
+    #   If set to 1 or *true*, TCP transports will use IPV4 sockets and
+    #   will be unable to communicate with IPV6 hosts. Setting to 0 or
+    #   *false* will direct transports to use IPV6 sockets, which can
+    #   accept both IPV4 and IPV6 connections. Changes apply to new
+    #   connections or bindings only. Defaults to 1 (true).
+    socket_option :ipv4only, :ipv4_only
+
+    # @see {#ipv4_only}
+    def ipv4_only?
+      ipv4_only == 1
+    end
+
+    # @!attribute [rw] delay_attach_on_connect
+    #   If set to 1 or *true*, the socket will be closed and will block
+    #   on message sending until at least one connection has been
+    #   completed. Defaults to 0 (false), meaning messages will be
+    #   accepted and queued while connections are made.
+    socket_option :delay_attach_on_connect
+
+    # @see {#delay_attach_on_connect}
+    def delay_attach_on_connect?
+      delay_attach_on_connect == 1
+    end
+
+    # @!attribute [rw] tcp_keepalive
+    #   For TCP transports only, toggles {http://tldp.org/HOWTO/TCP-Keepalive-HOWTO/overview.html keepalive}
+    #   for the underlying network socket. Set to 1 or *true* to enable
+    #   keepalive, and 0 or *false* to disable. Changes apply to new connections
+    #   only.  Defaults to -1, which defers to operating system settings.
+    socket_option :tcp_keepalive
+
+    # @!attribute [rw] tcp_keepalive_idle
+    #   For TCP transports only, the delay in seconds between the last
+    #   data packet sent and the beginning of keepalive packet. Changes
+    #   apply to new connections only. Defaults to -1, which defers to
+    #   operating system settings.
+    #   @see http://tldp.org/HOWTO/TCP-Keepalive-HOWTO/usingkeepalive.html Using Keepalive Under Linux
+    socket_option :tcp_keepalive_idle
+
+    # @!attribute [rw] tcp_keepalive_interval
+    #   For TCP transports only, the time between each keepalive packet.
+    #   Changes apply to new connections only. Defaults to -1, which defers
+    #   to operating system settings.
+    #   @see http://tldp.org/HOWTO/TCP-Keepalive-HOWTO/usingkeepalive.html Using Keepalive Under Linux
+    socket_option :tcp_keepalive_intvl, :tcp_keepalive_interval
+
+    # @!attribute [rw] tcp_keepalive_count
+    #   For TCP transports only, the number of keepalive packets to send
+    #   before giving up and reporting a dead connection. Changes apply
+    #   to new connections only. Defaults to -1, which defers to operating
+    #   system settings.
+    #   @see http://tldp.org/HOWTO/TCP-Keepalive-HOWTO/usingkeepalive.html Using Keepalive Under Linux
+    socket_option :tcp_keepalive_cnt, :tcp_keepalive_count
+
+    # @!attribute [r] tcp_accept_filters
+    #   List of filters defined for this socket using {#tcp_accept_filter}.
+    #   Defaults to an empty array.
+    def tcp_accept_filters
+      @tcp_accept_filters ||= []
+    end
+
+    # Assigns one or more {http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing CIDR}
+    # strings (e.g. `'192.168.0.0/16'`) as TCP connection filters for this
+    # socket. If used, incoming connections must match at least one of the
+    # filters or be rejected. CIDR strings may be IPV4 or IPV6. To clear
+    # all filters, pass *nil*. Changes apply to new bindings only.
+    # @see #tcp_accept_filters
+    # @param [String, nil] *filters One or more IPV4 or IPV6 CIDR strings, or nil to clear all filters
+    # @return [Array] List of all current filters defined using this method.
+    def tcp_accept_filter(*filters)
+      filters.each do |filter|
+        self.tcp_accept_filter = filter
+        if filter.nil?
+          tcp_accept_filters.clear
+        else
+          tcp_accept_filters << filter
+        end
+      end
+      tcp_accept_filters
+    end
+
+
+  protected
+    set_option :tcp_accept_filter
   end
 end
