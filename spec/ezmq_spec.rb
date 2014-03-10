@@ -5,6 +5,10 @@ module EZMQ
       expect(described_class.linger).to be > 0
     end
 
+    it "knows the 0MQ version" do
+      expect(described_class.zmq_version).to match /[234].\d+.\d+/
+    end
+
     describe "global context" do
       it "is always there when we need it" do
         expect(described_class.context).to be_an EZMQ::Context

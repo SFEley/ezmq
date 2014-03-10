@@ -21,7 +21,9 @@ module EZMQ
     attach_function :zmq_socket, [:pointer, :int], :pointer
     attach_function :zmq_close, [:pointer], :int, :blocking => true
     attach_function :zmq_bind, [:pointer, :string], :int
+    attach_function :zmq_unbind, [:pointer, :string], :int
     attach_function :zmq_connect, [:pointer, :string], :int
+    attach_function :zmq_disconnect, [:pointer, :string], :int
     attach_function :zmq_getsockopt, [:pointer, :int, :pointer, :pointer], :int
     attach_function :zmq_setsockopt, [:pointer, :int, :pointer, :size_t], :int
     attach_function :zmq_send, [:pointer, :pointer, :size_t, :int], :int, :blocking => true
@@ -42,6 +44,7 @@ module EZMQ
     # Miscellaneous functions
     attach_function :zmq_proxy, [:pointer, :pointer, :pointer], :int, :blocking => true
     attach_function :zmq_strerror, [:int], :string
+    attach_function :zmq_version, [:pointer, :pointer, :pointer], :void
 
     # Wraps 0MQ's C-based calling semantics (return a 0 on success, -1 or
     # null pointer and get the errno on failures) in a much more Rubyish

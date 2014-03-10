@@ -3,11 +3,11 @@ require 'ezmq/sockets/socket_shared'
 module EZMQ
 
   shared_examples "a sending socket" do
-    include_context "message delivery"
     before do
       subject.send_timeout = 1000   # So failures don't block the spec run
       other.receive_timeout = 1000
     end
+    include_context "message delivery"
 
     it "can send a single-part message" do
       # Munged because ROUTER sockets never send single parts
@@ -37,6 +37,11 @@ module EZMQ
         subject.send_from_frame frame, :more => (part != multi_sent.last)
       end
       expect(other.receive).to eq multi_received
+    end
+
+    describe "readiness flag" do
+      it "is ready "
+
     end
   end
 

@@ -190,6 +190,9 @@ module EZMQ
         expect(subject.tcp_accept_filters).to be_empty
       end
 
+      it "can get the internal file descriptor" do
+        expect(subject.file_descriptor).to be > 0
+      end
     end
 
     describe "binding" do
@@ -249,6 +252,26 @@ module EZMQ
           expect {subject.bind bad_endpoint}.to raise_error(InvalidEndpoint, /#{bad_endpoint}/)
         end
       end
+
+      describe "and unbinding" do
+        before do
+          subject.bind endpoint
+          expect(subject.last_endpoint).to eq endpoint
+        end
+
+        it "succeeds" do
+          expect {subject.unbind endpoint}.not_to raise_error
+        end
+
+        it "clears the endpoint from the list" do
+          subject.unbind endpoint
+          expect(subject.endpoints).to be_empty
+        end
+
+        it "fails if given a bad endpoint" do
+          expect {subject.unbind endpoint.succ}.to raise_error(InvalidEndpoint)
+        end
+      end
     end
 
     describe "connecting" do
@@ -284,6 +307,26 @@ module EZMQ
       it "chokes on invalid endpoints" do
         ['blah', 'invalid://thing.here', :foo, nil].each do |bad_endpoint|
           expect {subject.connect bad_endpoint}.to raise_error(InvalidEndpoint, /#{bad_endpoint}/)
+        end
+      end
+
+      describe "and disconnecting" do
+        before do
+          subject.connect bound
+          expect(subject.connections).to include endpoint
+        end
+
+        it "succeeds" do
+          expect {subject.disconnect endpoint}.not_to raise_error
+        end
+
+        it "clears the endpoint from the list" do
+          subject.disconnect endpoint
+          expect(subject.connections).to be_empty
+        end
+
+        it "fails if given a bad endpoint" do
+          expect {subject.disconnect endpoint.succ}.to raise_error(ENOENT)
         end
       end
     end

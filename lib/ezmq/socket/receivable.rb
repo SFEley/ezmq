@@ -102,6 +102,12 @@ module EZMQ
         rcvmore == 1
       end
 
+      # True if the socket is able to {#receive} without blocking. (I.e.,
+      # if there is at least one complete message in the queue.)
+      def receive_ready?
+        event_flags & POLLIN == POLLIN
+      end
+
     private
 
       def receive_frame

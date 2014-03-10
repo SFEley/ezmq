@@ -131,4 +131,5 @@ module EZMQ
   # The errors below don't have 0MQ-specific codes, so the operating
   # system code is always used:
   ZMQError.spawn :EINVAL
+  ZMQError.spawn :ENOENT
 end

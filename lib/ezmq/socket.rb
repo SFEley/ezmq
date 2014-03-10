@@ -134,6 +134,17 @@ module EZMQ
       endpoints
     end
 
+    # Stops accepting connections or messages on the given endpoint.
+    # The string provided must exactly match an endpoint known to 0MQ;
+    # symbols or wildcard-based addresses are not accepted.
+    #
+    # @param *endpoints [String] List of endpoints to unbind.
+    # @return [Array] The updated list of active endpoints for the socket.
+    def unbind(endpoint)
+      API::invoke :zmq_unbind, self, endpoint
+      info "Unbound from #{endpoint}"
+    end
+
     # Connects the socket to one or more remote or local endpoints.
     # Non-*inproc* endpoints need not have a socket bound already.
     # See {#bind} for a deeper description of endpoint formats (but note
@@ -164,6 +175,15 @@ module EZMQ
         info "Connected to #{endpoint}"
       end
       connections
+    end
+
+    # Stops communicating with a given endpoint.
+    # @param endpoint [String] Endpoint to disconnect from.
+    # @return [Array] The updated list of active connections for the socket.
+    def disconnect(endpoint)
+      API::invoke :zmq_disconnect, self, endpoint
+      connections.delete endpoint
+      info "Unbound from #{endpoint}"
     end
 
     # Closes this socket and removes it from the context list.

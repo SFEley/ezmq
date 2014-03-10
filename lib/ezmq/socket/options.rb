@@ -41,6 +41,20 @@ module EZMQ
       xpub_verbose:             [40, :int]
     }
 
+    # From include/zmq.h
+    # The ZMQ_EVENTS option concatenates these values to signal readiness
+    # for reading or writing:
+
+    # The socket can receive a message without blocking.
+    POLLIN = 0b001
+
+    # The socket can send a message without blocking.
+    POLLOUT = 0b010
+
+    # Error on standard socket monitored by **zmq_poll** (rarely used)
+    POLLERR = 0b100
+
+
     # @api private
     # Sets up a retrievable socket option as a reader attribute.
     def self.get_option(name, *aliases)
@@ -318,6 +332,22 @@ module EZMQ
       end
       tcp_accept_filters
     end
+
+    # @!attribute [r] file_descriptor
+    #   The operating system file descriptor for the socket, used by
+    #   0mq to signal events. This is a low-level attribute that you will
+    #   most likely never need unless you're building your own event loop.
+    #   You should read and understand the `ZMQ_FD` option in the
+    #   **zmq_getsockopt(3)** man page before you consider using this.
+    #   @see http://api.zeromq.org/3-2:zmq-getsockopt
+    get_option :fd, :file_descriptor
+
+    # @!attribute [r] event_flags
+    #   A bitfield representing the socket's readiness to receive a message
+    #   {POLLIN} or or send a message {POLLOUT}. This is a low-level attribute
+    #   intended for event loops. The {#receive_ready?} and {#send_ready?}
+    #   methods break this value into more convenient booleans.
+    get_option :events, :event_flags
 
 
   protected

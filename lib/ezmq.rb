@@ -6,6 +6,19 @@ require 'ezmq/sockets'
 
 module EZMQ
   class << self
+    # The version of the 0MQ library. Not to be confused with the version
+    # of the EZMQ gem.
+    # @return [String]
+    def zmq_version
+      pointers = []
+      3.times {pointers << FFI::MemoryPointer.new(:int)}
+      API::invoke :zmq_version, *pointers
+      nums = pointers.collect {|p| p.read_int}
+      pointers.each {|p| p.free}
+      nums.join '.'
+    end
+
+
     # The default `ZMQ_LINGER` socket value. Any sockets that do not set a
     # different value for their *linger* attribute on the socket or its class
     # will inherit this one upon creation.

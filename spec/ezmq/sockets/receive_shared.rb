@@ -2,11 +2,11 @@ require 'ezmq/sockets/socket_shared'
 
 module EZMQ
   shared_examples "a receiving socket" do
-    include_context "message delivery"
     before do
       subject.receive_timeout = 1000
       other.send_timeout = 1000
     end
+    include_context "message delivery"
 
     it "can receive a single-part message" do
       other.send single_sent
@@ -46,6 +46,12 @@ module EZMQ
         subject.receive_into_frame(frame)
         expect(frame.to_s).to eq part
       end
+    end
+
+    it "knows when a message is ready to receive" do
+      expect(subject).not_to be_receive_ready
+      other.send single_sent
+      expect(subject).to be_receive_ready
     end
   end
 
