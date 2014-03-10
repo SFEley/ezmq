@@ -7,6 +7,7 @@ module EZMQ
       subject.send_timeout = 1000   # So failures don't block the spec run
       other.receive_timeout = 1000
     end
+
     include_context "message delivery"
 
     it "can send a single-part message" do
@@ -40,7 +41,18 @@ module EZMQ
     end
 
     describe "readiness flag" do
-      it "is ready "
+      let(:unconnected) {described_class.new :send_limit => 1, :delay_attach_on_connect => true}
+
+      it "is NOT ready when sending would block" do
+        unless unconnected.is_a?(ROUTER) or unconnected.is_a?(PUB) or unconnected.is_a?(XPUB)
+          expect(unconnected).not_to be_send_ready
+        end
+      end
+
+      it "is ready when the socket is able to send" do
+        unconnected.connect DEALER.new
+        expect(subject).to be_send_ready
+      end
 
     end
   end

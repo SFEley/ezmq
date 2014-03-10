@@ -254,21 +254,25 @@ module EZMQ
       end
 
       describe "and unbinding" do
+
         before do
           subject.bind endpoint
           expect(subject.last_endpoint).to eq endpoint
         end
 
         it "succeeds" do
+          pending "until the unbinding bug in ZeroMQ 3.x is fixed"
           expect {subject.unbind endpoint}.not_to raise_error
         end
 
         it "clears the endpoint from the list" do
+          pending "until the unbinding bug in ZeroMQ 3.x is fixed"
           subject.unbind endpoint
           expect(subject.endpoints).to be_empty
         end
 
         it "fails if given a bad endpoint" do
+          pending "until the unbinding bug in ZeroMQ 3.x is fixed"
           expect {subject.unbind endpoint.succ}.to raise_error(InvalidEndpoint)
         end
       end

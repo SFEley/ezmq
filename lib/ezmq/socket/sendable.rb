@@ -62,6 +62,13 @@ module EZMQ
       end
 
 
+      # True if the socket is able to {#send} without blocking. (I.e.,
+      # if the #send_limit high-water mark has not yet been reached.)
+      def send_ready?
+        event_flags & POLLOUT == POLLOUT
+      end
+
+
       # Sends the message content from a {MessageFrame} object, clearing its
       # contents after transmission. This is considered an advanced feature, making
       # use of the more complex `zmq_msg_send` API. Users who don't have
