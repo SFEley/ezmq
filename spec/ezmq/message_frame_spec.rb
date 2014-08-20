@@ -1,7 +1,7 @@
 require 'weakref'
 
 module EZMQ
-  describe MessageFrame do
+  xdescribe MessageFrame do
     let(:content) {"Now is the time for all good men to come to the aid of their party!"}
 
     describe "with no content or size" do

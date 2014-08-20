@@ -57,7 +57,7 @@ module EZMQ
     # {Context#terminate} calls.)
     def terminate!
       global_mutex.synchronize do
-        if @context
+        if @context && !@context.closed?
           @context.terminate
           @context = nil
         end

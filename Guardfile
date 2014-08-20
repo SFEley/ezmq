@@ -7,8 +7,7 @@ end
 guard :rspec,
       :all_after_pass => true,
       :all_on_start => true,
-      :focus_on_failed => false,
-      :keep_failed => true do
+      :cmd => 'bundle exec rspec' do
   watch(%r{^spec/.+_spec\.rb$})
   watch(%r{^(spec.*)/.+_shared\.rb$}) { |m| m[1] }
   watch(%r{^lib/(.+)\.rb$})     { |m| "spec/#{m[1]}_spec.rb" }

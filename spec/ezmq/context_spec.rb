@@ -63,7 +63,8 @@ module EZMQ
       end
 
       it "knows its socket maximum" do
-        expect(subject.max_sockets).to eq 1024
+        # ZMQ 3 has this as 1024; ZMQ 4 has it as 1023
+        expect(subject.max_sockets).to eq(1023).or eq(1024)
       end
 
       it "can set its socket maximum" do

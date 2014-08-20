@@ -4,6 +4,7 @@
 # loaded once.
 #
 # See http://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
+require 'rspec/collection_matchers'
 require 'timeout'
 
 require 'ezmq'
@@ -23,7 +24,6 @@ EZMQ.linger = 10
 
 
 RSpec.configure do |config|
-  config.treat_symbols_as_metadata_keys_with_true_values = true
   config.run_all_when_everything_filtered = true
   config.filter_run :focus
 
@@ -34,6 +34,10 @@ RSpec.configure do |config|
   config.order = 'random'
 
   config.around(:each) do |example|
-    Timeout::timeout(10) {example.run}
+    Timeout::timeout(10) do
+      example.run
+      EZMQ.terminate!
+    end
   end
+
 end

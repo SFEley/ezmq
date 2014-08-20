@@ -4,6 +4,12 @@ require 'ezmq/sockets/send_shared'
 
 module EZMQ
   shared_examples "every socket" do
+    after(:each) do
+      unless subject.closed?
+        subject.linger = 10
+        subject.close
+      end
+    end
 
     it "defaults to the global context" do
       expect(subject.context).to eq EZMQ.context
@@ -24,8 +30,8 @@ module EZMQ
     end
 
     it "falls back to Ruby #send when given a symbol" do
-      expect(subject.send :kind_of?, Socket).to be_true
-      expect(subject.send :instance_of?, Socket).to be_false
+      expect(subject.send :kind_of?, Socket).to be_truthy
+      expect(subject.send :instance_of?, Socket).to be_falsey
     end
 
     it "can set options on initialization" do
@@ -38,7 +44,7 @@ module EZMQ
       # Weirdly, SUB and XSUB sockets have a default LINGER option of 0.
       # Everything else defaults to -1. Don't know what's up with that, but
       # we account for it by making the default configurable per class.
-      let(:default_linger) {example.metadata.fetch :default_linger, -1}
+      let(:default_linger) {|example| example.metadata.fetch :default_linger, -1}
 
       before(:all) do
         @global_linger = EZMQ.linger
@@ -229,7 +235,7 @@ module EZMQ
 
       it "can bind with :ipc and find its path" do
         subject.bind :ipc
-        expect(File.exists?(subject.endpoints.first[%r{ipc://(.*)}, 1])).to be_true
+        expect(File.exists?(subject.endpoints.first[%r{ipc://(.*)}, 1])).to be_truthy
       end
 
       it "can bind with :tcp and make it to port" do

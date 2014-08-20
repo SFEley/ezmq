@@ -68,7 +68,7 @@ module EZMQ
     end
 
     describe "on initialization" do
-      subject {described_class.new :subscribe => example.metadata[:subscribe]}
+      subject {|example| described_class.new :subscribe => example.metadata[:subscribe]}
 
       before do
         send_messages

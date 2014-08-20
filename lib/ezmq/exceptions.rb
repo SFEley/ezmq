@@ -132,4 +132,5 @@ module EZMQ
   # system code is always used:
   ZMQError.spawn :EINVAL
   ZMQError.spawn :ENOENT
+  ZMQError.spawn :EFAULT
 end
