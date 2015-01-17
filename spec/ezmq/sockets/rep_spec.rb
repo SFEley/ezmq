@@ -20,13 +20,13 @@ module EZMQ
       it "handles single-part messages" do
         other.send "Foo!"
         subject.on_request {|msg| "You said '#{msg}'"}
-        other.receive.should eq "You said 'Foo!'"
+        expect(other.receive).to eq "You said 'Foo!'"
       end
 
       it "handles multi-part messages" do
         other.send "Foo", "Bar"
         subject.on_request {|msg| msg.map {|part| part.upcase}}
-        other.receive.should eq ["FOO", "BAR"]
+        expect(other.receive).to eq ["FOO", "BAR"]
       end
 
       describe "with multiple requesters" do
@@ -39,15 +39,14 @@ module EZMQ
         end
 
         it "sends the right reply to the right requester" do
-          other.receive.should eq 'GOOGAR'
+          expect(other.receive).to eq 'GOOGAR'
         end
 
         it "sends replies in order" do
-          other2.receive.should eq %w[FOO BAR]
+          expect(other2.receive).to eq %w[FOO BAR]
         end
 
       end
     end
   end
 end
-

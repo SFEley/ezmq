@@ -23,12 +23,13 @@ module EZMQ
     # different value for their *linger* attribute on the socket or its class
     # will inherit this one upon creation.
     #
-    # **IMPORTANT:** EZMQ sets this global default to 1000 milliseconds,
-    # ensuring that 0MQ will not hang more than one second upon exit
-    # even if there are pending messages. Set `EZMQ.linger = nil` to clear
-    # the global default and fall back to 0MQ's default of -1, meaning
-    # that closing a socket or context will potentially hang forever if
-    # messages cannot be delivered.  (Danger Will Robinson!)
+    # **IMPORTANT:** EZMQ sets this global default to 0 milliseconds,
+    # ensuring that 0MQ will not hang upon exit even if there are pending
+    # messages. Set it to a positive integer to give time for queued
+    # messages to be sent upon closing, or `EZMQ.linger = nil` to
+    # fall back to 0MQ's default of -1, meaning that closing a socket or
+    # context will potentially hang forever if messages cannot be delivered.
+    # (Danger Will Robinson!)
     # @see Socket#linger
     attr_accessor :linger
 
@@ -40,7 +41,7 @@ module EZMQ
     # garbage collected.
     def context
       global_mutex.synchronize do
-        if @context.nil? || @context.closed?
+        if closed?
           @context = Context.new
         else
           @context
@@ -62,6 +63,11 @@ module EZMQ
         @context = nil
       end
       this_context.terminate if this_context && this_context.closed?
+    end
+
+    # True if the global context has been closed or doesn't exist yet.
+    def closed?
+      @context.nil? || @context.closed?
     end
 
     # A ZeroMQ convenience method for joining two sockets with
@@ -87,16 +93,17 @@ module EZMQ
     # @param frontend [Socket] The first member of the bidirectional link.
     # @param backend [Socket] The second member of the bidirectional link.
     # @param capture [Socket] Optional socket that receives messages
+    # @return true
     def proxy(frontend, backend, capture=nil)
       API::invoke :zmq_proxy, frontend, backend, capture
-    # rescue EZMQ::ETERM
-    rescue EZMQ::ENOTSOCK
+    rescue EZMQ::ETERM, EZMQ::ENOTSOCK
+      true
     end
   private
     attr_reader :global_mutex
 
   end
-  self.linger = 1000
+  self.linger = 0
   @global_mutex = Mutex.new
 
 end

@@ -1,5 +1,5 @@
 module EZMQ
-  xdescribe Message do
+  describe Message do
     subject {described_class.new 'foo', 'bar'}
 
     describe "parts" do

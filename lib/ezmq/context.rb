@@ -101,6 +101,7 @@ module EZMQ
     def terminate
       destroyer.call
       @ptr = nil
+      ObjectSpace.undefine_finalizer(self)
       info "Context destroyed."
     end
     alias_method :destroy, :terminate
@@ -115,8 +116,9 @@ module EZMQ
     # the 0MQ context upon garbage collection.
     def self.finalize(ptr, sockets)
       Proc.new do
-        sockets.each {|socket| socket.close}
-        API::invoke :zmq_ctx_destroy, ptr
+        API::invoke :zmq_ctx_shutdown, ptr
+        sockets.each { |socket| socket.close }
+        API::invoke :zmq_ctx_term, ptr
       end
     end
 

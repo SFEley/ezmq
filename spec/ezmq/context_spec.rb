@@ -32,13 +32,13 @@ module EZMQ
       end
 
       it "can close itself" do
-        expect(API).to receive(:zmq_ctx_destroy).at_least(:once).and_call_original
+        expect(API).to receive(:zmq_ctx_term).at_least(:once).and_call_original
         subject.terminate
       end
 
       it "destroys its 0MQ context if garbage collected" do
         weakref, gc_counter = nil, 0
-        expect(API).to receive(:zmq_ctx_destroy).at_least(:once).and_call_original
+        expect(API).to receive(:zmq_ctx_term).at_least(:once).and_call_original
         begin
           weakref = WeakRef.new(Context.new)
         end
@@ -85,7 +85,7 @@ module EZMQ
 
     describe "socket list" do
 
-      let(:socket) {double('Socket', :closed? => false)}
+      let(:socket) {double('Socket', :closed? => false, :linger= => true)}
 
       it "begins empty" do
         expect(subject).to have(0).sockets

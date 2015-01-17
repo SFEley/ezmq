@@ -10,7 +10,7 @@ require 'timeout'
 require 'ezmq'
 $:.unshift File.join(File.dirname(__FILE__), 'support')
 
-Process.setrlimit(:NOFILE, 4096)    # Don't run out of file handles
+Process.setrlimit(:NOFILE, 8192)    # Don't run out of file handles
 Thread.abort_on_exception = true
 
 # Log testing activity if there's a log directory
@@ -20,7 +20,6 @@ if Dir.exist?(logdir)
   EZMQ.logger = Logger.new File.join(logdir, 'spec.log')
   EZMQ.logger.level = Logger::DEBUG
 end
-EZMQ.linger = 10
 
 
 RSpec.configure do |config|
@@ -32,12 +31,15 @@ RSpec.configure do |config|
   # the seed, which is printed after each run.
   #     --seed 1234
   config.order = 'random'
+  config.raise_errors_for_deprecations!
 
   config.around(:each) do |example|
-    Timeout::timeout(10) do
-      example.run
-      EZMQ.terminate!
+    begin
+      Timeout::timeout(10) do
+        example.run
+      end
+    ensure
+      EZMQ.terminate! unless EZMQ.context.closed?
     end
   end
-
 end

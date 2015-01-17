@@ -16,6 +16,8 @@ module EZMQ
     attach_function :zmq_ctx_get, [:pointer, :int], :int
     attach_function :zmq_ctx_set, [:pointer, :int, :int], :int
     attach_function :zmq_ctx_destroy, [:pointer], :int, :blocking => true
+    attach_function :zmq_ctx_term, [:pointer], :int, :blocking => true
+    attach_function :zmq_ctx_shutdown, [:pointer], :int
 
     # Socket functions
     attach_function :zmq_socket, [:pointer, :int], :pointer

@@ -4,7 +4,7 @@ require 'ezmq/sockets/subscriber_shared'
 
 module EZMQ
   # XSUB socket in 3.2 has a default linger of 0 instead of -1
-  xdescribe XSUB, :default_linger => 0 do
+  describe XSUB, :default_linger => 0 do
     let(:other) {PUB.new :bind => :inproc}
 
     it_behaves_like "every socket"

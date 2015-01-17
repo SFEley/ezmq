@@ -1,8 +1,8 @@
 require 'spec_helper'
 module EZMQ
   describe EZMQ do
-    it "has a global linger value by default" do
-      expect(described_class.linger).to be > 0
+    it "has a global linger value of zero" do
+      expect(described_class.linger).to eq 0
     end
 
     it "knows the 0MQ version" do
@@ -25,18 +25,20 @@ module EZMQ
       end
 
       it "closes itself when terminated" do
-        expect(described_class.context).to receive(:terminate).and_call_original
-        described_class.terminate!
+        described_class.context
+        expect { described_class.terminate! }.to \
+          change(described_class, :closed?).from(false).to(true)
       end
+
     end
 
     describe "::proxy method" do
       # Using DEALERs instead of PAIRs because they're more typical in a
       # context connection and termination sense.
       let(:context) {Context.new}
-      let!(:front) {DEALER.new :context => context, :name => 'front'}
+      let(:front) {DEALER.new :context => context, :name => 'front'}
       let(:frontend) {DEALER.new :connect => front, :context => context, :name => 'frontend'}
-      let!(:back) {DEALER.new :context => context, :name => 'back'}
+      let(:back) {DEALER.new :context => context, :name => 'back'}
       let(:backend) {DEALER.new :connect => back, :context => context, :name => 'backend'}
       let(:captured) {DEALER.new :context => context, :name => 'captured'}
       let(:capturer) {DEALER.new :connect => captured, :context => context, :name => 'capturer'}

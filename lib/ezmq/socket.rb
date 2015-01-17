@@ -12,6 +12,12 @@ module EZMQ
   # The abstract base class for all 0MQ socket types. All common behavior
   # for creating, configuring, binding and connecting sockets lives in
   # this class.
+  #
+  # @note Due to outstanding bugs in the 0mq library which make it
+  #   inconsistent (see {https://zeromq.jira.com/browse/LIBZMQ-507 LIBZMQ-507},
+  #   {https://zeromq.jira.com/browse/LIBZMQ-508 LIBZMQ-508}), the
+  #   `zmq_unbind` call is currently not implemented. Close a socket
+  #   to unbind it.
   class Socket
     include Loggable
 
@@ -134,17 +140,6 @@ module EZMQ
       endpoints
     end
 
-    # Stops accepting connections or messages on the given endpoint.
-    # The string provided must exactly match an endpoint known to 0MQ;
-    # symbols or wildcard-based addresses are not accepted.
-    #
-    # @param *endpoints [String] List of endpoints to unbind.
-    # @return [Array] The updated list of active endpoints for the socket.
-    def unbind(endpoint)
-      API::invoke :zmq_unbind, self, endpoint
-      info "Unbound from #{endpoint}"
-    end
-
     # Connects the socket to one or more remote or local endpoints.
     # Non-*inproc* endpoints need not have a socket bound already.
     # See {#bind} for a deeper description of endpoint formats (but note
@@ -200,6 +195,17 @@ module EZMQ
       ptr.nil?
     end
 
+    # # Stops accepting connections or messages on the given endpoint.
+    # # The string provided must exactly match an endpoint known to 0MQ;
+    # # symbols or wildcard-based addresses are not accepted.
+    # #
+    # # @param endpoint [String] Canonical name of the endpoint to unbind.
+    # # @return [Array] The updated list of active endpoints for the socket.
+    # def unbind(endpoint)
+    #   API::invoke :zmq_unbind, self, endpoint
+    #   info "Unbound from #{endpoint}"
+    # end
+    
   private
     attr_reader :destroyer
 
