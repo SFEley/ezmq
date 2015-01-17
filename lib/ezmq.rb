@@ -56,12 +56,12 @@ module EZMQ
     # are unaffected. (You can still close them with their own
     # {Context#terminate} calls.)
     def terminate!
+      this_context = nil
       global_mutex.synchronize do
-        if @context && !@context.closed?
-          @context.terminate
-          @context = nil
-        end
+        this_context = @context
+        @context = nil
       end
+      this_context.terminate if this_context && this_context.closed?
     end
 
     # A ZeroMQ convenience method for joining two sockets with

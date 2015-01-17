@@ -202,7 +202,7 @@ module EZMQ
     end
 
     describe "binding" do
-      let(:endpoint) {"inproc://test_#{rand(1_000_000)}"}
+      let(:endpoint) {:tcp}
 
       it "has no endpoints on creation" do
         expect(subject.endpoints).to be_empty
@@ -210,22 +210,25 @@ module EZMQ
 
       it "can be bound to an endpoint" do
         subject.bind endpoint
-        expect(subject.endpoints).to include endpoint
+        expect(subject.endpoints.first).to start_with endpoint.to_s
       end
 
       it "can be bound to multiple endpoints" do
-        subject.bind endpoint, endpoint.succ
-        expect(subject.endpoints).to include endpoint, endpoint.succ
+        subject.bind endpoint, endpoint
+        expect(subject.endpoints).to match [
+          a_string_starting_with(endpoint.to_s),
+          a_string_starting_with(endpoint.to_s)
+        ]
       end
 
       it "knows the last endpoint bound" do
         subject.bind endpoint
-        expect(subject.last_endpoint).to eq endpoint
+        expect(subject.last_endpoint).to eq subject.endpoints.last
       end
 
       it "returns the last endpoint when asked for just one" do
-        subject.bind endpoint, endpoint.succ
-        expect(subject.endpoint).to eq endpoint.succ
+        subject.bind endpoint, endpoint
+        expect(subject.endpoint).to eq subject.endpoints.last
       end
 
       it "can bind with :inproc and make a name for itself" do
@@ -263,30 +266,26 @@ module EZMQ
 
         before do
           subject.bind endpoint
-          expect(subject.last_endpoint).to eq endpoint
         end
 
         it "succeeds" do
-          pending "until the unbinding bug in ZeroMQ 3.x is fixed"
           expect {subject.unbind endpoint}.not_to raise_error
         end
 
         it "clears the endpoint from the list" do
-          pending "until the unbinding bug in ZeroMQ 3.x is fixed"
           subject.unbind endpoint
           expect(subject.endpoints).to be_empty
         end
 
         it "fails if given a bad endpoint" do
-          pending "until the unbinding bug in ZeroMQ 3.x is fixed"
-          expect {subject.unbind endpoint.succ}.to raise_error(InvalidEndpoint)
+          expect {subject.unbind 'blah'}.to raise_error(InvalidEndpoint)
         end
       end
     end
 
     describe "connecting" do
-      let(:bound) {described_class.new :bind => :inproc}
-      let!(:endpoint) {bound.endpoint}
+      let(:bound) {described_class.new :bind => :tcp}
+      let(:endpoint) {bound.endpoint}
 
       it "has no connections on creation" do
         expect(subject.connections).to be_empty
@@ -311,7 +310,7 @@ module EZMQ
         this = described_class.new :bind => :tcp
         subject.connect this
         expect(this).to have(2).endpoints
-        expect(subject.connections).to include(this.endpoints[1])
+        expect(subject.connections.first).to start_with 'inproc:'
       end
 
       it "chokes on invalid endpoints" do
@@ -323,7 +322,6 @@ module EZMQ
       describe "and disconnecting" do
         before do
           subject.connect bound
-          expect(subject.connections).to include endpoint
         end
 
         it "succeeds" do
