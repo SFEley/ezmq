@@ -205,7 +205,7 @@ module EZMQ
     #   API::invoke :zmq_unbind, self, endpoint
     #   info "Unbound from #{endpoint}"
     # end
-    
+
   private
     attr_reader :destroyer
 

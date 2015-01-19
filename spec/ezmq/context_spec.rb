@@ -31,12 +31,26 @@ module EZMQ
         ObjectSpace.garbage_collect # Ensure pristine GC state every time
       end
 
-      it "can close itself" do
+      it "can close itself", version: 3 do
+        expect(API).to receive(:zmq_ctx_destroy).at_least(:once).and_call_original
+        subject.terminate
+      end
+
+      it "destroys its 0MQ context if garbage collected", version: 3 do
+        weakref, gc_counter = nil, 0
+        expect(API).to receive(:zmq_ctx_destroy).at_least(:once).and_call_original
+        begin
+          weakref = WeakRef.new(Context.new)
+        end
+        ObjectSpace.garbage_collect while weakref.weakref_alive? && (gc_counter += 1) < 10
+      end
+
+      it "can close itself", version: 4 do
         expect(API).to receive(:zmq_ctx_term).at_least(:once).and_call_original
         subject.terminate
       end
 
-      it "destroys its 0MQ context if garbage collected" do
+      it "destroys its 0MQ context if garbage collected", version: 4 do
         weakref, gc_counter = nil, 0
         expect(API).to receive(:zmq_ctx_term).at_least(:once).and_call_original
         begin
@@ -44,8 +58,6 @@ module EZMQ
         end
         ObjectSpace.garbage_collect while weakref.weakref_alive? && (gc_counter += 1) < 10
       end
-
-
     end
 
     describe "options" do

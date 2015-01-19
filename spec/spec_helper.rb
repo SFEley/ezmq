@@ -17,7 +17,7 @@ Thread.abort_on_exception = true
 logdir = File.join(File.dirname(__FILE__), '..', 'log')
 if Dir.exist?(logdir)
   require 'logger'
-  EZMQ.logger = Logger.new File.join(logdir, 'spec.log')
+  EZMQ.logger = Logger.new File.join(logdir, 'spec.log'), 2, 5_242_880
   EZMQ.logger.level = Logger::DEBUG
 end
 
@@ -25,6 +25,14 @@ end
 RSpec.configure do |config|
   config.run_all_when_everything_filtered = true
   config.filter_run :focus
+
+  # Some specs are specific by 0mq version...
+  case EZMQ.zmq_version
+  when /^3\./
+    config.filter_run_excluding version: 4
+  when /^4\./
+    config.filter_run_excluding version: 3
+  end
 
   # Run specs in random order to surface order dependencies. If you find an
   # order dependency and want to debug it, you can fix the order by providing

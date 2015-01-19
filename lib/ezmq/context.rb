@@ -115,10 +115,10 @@ module EZMQ
     # Creates a routine that will safely close any sockets and terminate
     # the 0MQ context upon garbage collection.
     def self.finalize(ptr, sockets)
+      puts "Old v3 finalizer"
       Proc.new do
-        API::invoke :zmq_ctx_shutdown, ptr
         sockets.each { |socket| socket.close }
-        API::invoke :zmq_ctx_term, ptr
+        API::invoke :zmq_ctx_destroy, ptr
       end
     end
 

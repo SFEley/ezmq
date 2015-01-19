@@ -351,7 +351,7 @@ module EZMQ
         allow(API).to receive(:zmq_close).and_call_original
         expect(API).to receive(:zmq_close).with(subject.ptr).and_call_original
         subject.context.terminate
-        
+
       end
 
       it "returns a null pointer if cast after closing" do

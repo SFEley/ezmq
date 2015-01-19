@@ -6,16 +6,23 @@ require 'ezmq/sockets'
 
 module EZMQ
   class << self
-    # The version of the 0MQ library. Not to be confused with the version
-    # of the EZMQ gem.
-    # @return [String]
-    def zmq_version
+
+    # The version of the 0MQ library as an array of [Major, minor, patch].
+    # @return [Array<<Integer>>]
+    def zmq_version_nums
       pointers = []
       3.times {pointers << FFI::MemoryPointer.new(:int)}
       API::invoke :zmq_version, *pointers
       nums = pointers.collect {|p| p.read_int}
       pointers.each {|p| p.free}
-      nums.join '.'
+      nums
+    end
+
+    # The version of the 0MQ library. Not to be confused with the version
+    # of the EZMQ gem.
+    # @return [String]
+    def zmq_version
+      zmq_version_nums.join '.'
     end
 
 
@@ -101,9 +108,14 @@ module EZMQ
     end
   private
     attr_reader :global_mutex
-
   end
+
   self.linger = 0
   @global_mutex = Mutex.new
 
+  # Autoload extensions for newer versions of the 0mq library
+  if EZMQ.zmq_version_nums[0] == 4
+    require_relative 'ezmq/versions/zmq4_0'
+    include Zmq4_0
+  end
 end
