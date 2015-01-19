@@ -135,7 +135,4 @@ module EZMQ
     def add(*args, &block)
     end
   end
-
-
-
 end

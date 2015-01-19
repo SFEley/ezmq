@@ -9,11 +9,9 @@ guard :rspec,
       :all_on_start => true,
       :cmd => 'bundle exec rspec' do
   watch(%r{^spec/.+_spec\.rb$})
-  watch(%r{^(spec.*)/.+_shared\.rb$}) { |m| m[1] }
-  watch(%r{^lib/(.+)\.rb$})     { |m| "spec/#{m[1]}_spec.rb" }
-  watch('spec/spec_helper.rb')  { "spec" }
-  watch(%r{^spec/support/.*})  { "spec" }
+  watch(%r{^(spec.*)/.+_shared\.rb$})     { |m| m[1] }
+  watch('lib/ezmq.rb')                    { |m| "spec/ezmq_spec.rb" }
+  watch(%r{^lib/ezmq/zmq[\d_]+/(.+)\.rb$})     { |m| "spec/#{m[1]}_spec.rb" }
+  watch('spec/spec_helper.rb')            { "spec" }
 
-  # Weird EZMQ-specific directories
-  watch(%r{^lib/ezmq/socket/(.+)\.rb$})  { |m| "spec/ezmq/sockets"}
 end
