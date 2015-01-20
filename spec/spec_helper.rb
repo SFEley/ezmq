@@ -17,7 +17,7 @@ Thread.abort_on_exception = true
 logdir = File.join(File.dirname(__FILE__), '..', 'log')
 if Dir.exist?(logdir)
   require 'logger'
-  EZMQ.logger = Logger.new File.join(logdir, 'spec.log'), 2, 5_242_880
+  EZMQ.logger = Logger.new File.join(logdir, 'spec.log'), 2, 2_000_000
   EZMQ.logger.level = Logger::DEBUG
 end
 
