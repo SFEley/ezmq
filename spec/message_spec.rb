@@ -2,16 +2,16 @@ module EZMQ
   describe Message do
     subject {described_class.new 'foo', 'bar'}
 
-    describe "parts" do
+    describe "frames" do
       it "can receive multiple strings when created" do
-        expect(subject.parts).to include 'foo', 'bar'
+        expect(subject.frames).to include 'foo', 'bar'
       end
 
       it "can be created without content" do
         expect(described_class.new).to be_empty
       end
 
-      it "can have parts added" do
+      it "can have frames added" do
         expect(subject << 'baz').to eq %w(foo bar baz)
       end
     end
@@ -80,20 +80,20 @@ module EZMQ
         expect('foob').to be < subject
       end
 
-      it "can take another part separator at creation" do
-        expect(described_class.new 'foo', 'bar', :part_separator => ':=:').to be =~  /foo:=:bar/
+      it "can take another frame separator at creation" do
+        expect(described_class.new 'foo', 'bar', :frame_separator => ':=:').to be =~  /foo:=:bar/
       end
 
-      it "can take another part separator after creation" do
-        subject.part_separator = '^^'
+      it "can take another frame separator after creation" do
+        subject.frame_separator = '^^'
         expect(subject).to eq 'foo^^bar'
       end
 
-      it "can set the part separator for the class" do
-        old_separator = described_class.part_separator
-        described_class.part_separator = '#'
+      it "can set the frame separator for the class" do
+        old_separator = described_class.frame_separator
+        described_class.frame_separator = '#'
         expect(subject).to be == 'foo#bar'
-        described_class.part_separator = old_separator
+        described_class.frame_separator = old_separator
       end
     end
 
