@@ -29,8 +29,7 @@ module EZMQ
       # @param *parts [String, Array<String>, Message] The content to be delivered.
       # @param opts [Hash, optional] Options for additional parts or non-blocking.
       # @option opts [Boolean] :more If true, don't send immediately; wait for additional parts.
-      # @option opts [Boolean] :async If true, raises {EAGAIN} or passes to the supplied block if the message can't be queued for sending immediately.
-      # @yield Block invoked if the message can't be sent immediately. Implies `async: true`.
+      # @option opts [Boolean] :async If true, raises {EAGAIN} if the message can't be queued for sending immediately.
       # @yieldparam message [Message] Accumulated parts of the message that was delayed.
       # @return [Fixnum] The total number of bytes queued for sending.
       def send(*parts)

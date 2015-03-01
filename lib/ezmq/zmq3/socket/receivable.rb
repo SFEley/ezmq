@@ -72,7 +72,7 @@ module EZMQ
       def receive_part(opts={})
         if size = opts[:size]
           ptr = FFI::MemoryPointer.new :char, size
-          received_size = API::invoke :zmq_recv, self, ptr, size, 0
+          received_size = API::invoke :zmq_recv, self, ptr, size, (opts[:async] ? 1 : 0)
           ptr.read_string [size, received_size].min
         else
           receive_into_frame(receive_frame, opts)
@@ -90,7 +90,7 @@ module EZMQ
       # @option opts [Boolean] :async (false) If true, raises {EAGAIN} when a message is not yet available.
       # @return [Fixnum] The number of bytes received into the frame.
       def receive_into_frame(frame, opts={})
-        API::invoke :zmq_msg_recv, frame, self, (opts[:async] ? 1: 0)
+        API::invoke :zmq_msg_recv, frame, self, (opts[:async] ? 1 : 0)
       end
 
 
@@ -117,8 +117,6 @@ module EZMQ
         received_size = API::invoke :zmq_recv, self, ptr, size, 0
         ptr.read_string [size, received_size].min
       end
-
-
     end
   end
 end

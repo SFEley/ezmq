@@ -38,6 +38,44 @@ module EZMQ
       expect(other.receive).to eq multi_received
     end
 
+    context "blocking and readiness" do
+      before do
+        other.disconnect other.connections.first unless other.connections.empty?
+        other.receive_limit = 1
+        subject.send_limit = 1
+        other.connect subjects
+      end
+
+      it "is ready when the socket is able to send" do
+        expect(subject).to be_send_ready
+      end
+
+      it "is not ready when the socket is not able to send" do
+        subject.send single_sent
+        subject.send single_sent
+        expect(subject).not_to be_send_ready
+      end
+
+      it "blocks by default when not ready" do
+        flag = Mutex.new
+        thread = Thread.new do
+          subject.send single_sent
+          flag.lock
+          subject.send single_sent
+          flag.unlock
+        end
+
+        expect(flag).to be_locked
+        other.receive
+        thread.join(5)
+        expect(flag).to be_unlocked
+        thread.exit
+      end
+
+
+    end
+
+
     describe "readiness flag" do
       let(:unconnected) {described_class.new :send_limit => 1, :delay_attach_on_connect => true}
 

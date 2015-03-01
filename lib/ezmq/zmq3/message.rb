@@ -45,6 +45,8 @@ module EZMQ
       # the Message is cast to a string. Defaults to an empty string
       # (simple concatenation).
       attr_accessor :frame_separator
+      alias_method :part_separator, :frame_separator
+      alias_method :part_separator=, :frame_separator=
     end
     self.encoding = Encoding::BINARY
     self.frame_separator = ''
@@ -52,14 +54,16 @@ module EZMQ
     attr_reader :frames
     attr_writer :frame_separator, :encoding
 
+    alias_method :parts, :frames
+    alias_method :part_separator=, :frame_separator=
 
     # Creates a new Message object. The object can begin life empty or can
     # be initialized from one or more strings or MessageFrame objects.
     def initialize(*frames)
       if frames.last.respond_to?(:fetch)
         opts = frames.pop
-        @encoding = opts[:encoding] if opts[:encoding]
-        @frame_separator = opts[:frame_separator] if opts[:frame_separator]
+        @encoding = opts[:encoding]
+        @frame_separator = opts[:frame_separator]
       end
 
       @frames = frames
@@ -75,6 +79,7 @@ module EZMQ
     def frame_separator
       @frame_separator || self.class.frame_separator
     end
+    alias_method :part_separator, :frame_separator
 
     # Coerces the object into a string. The individual frames of the
     # message are joined using the #frame_separator (defaults to an empty
@@ -82,17 +87,10 @@ module EZMQ
     # attribute (which you should leave at the 8-bit binary default if
     # you're uncertain).
     def to_str
-      if frames.empty?
-        ''.force_encoding(encoding)
-      else
-        frames.inject(nil) do |str, frame|
-          if str
-            str << frame_separator.encode(encoding)
-          else
-            str = ''.force_encoding(encoding)
-          end
-          str << frame.encode(encoding)
-        end
+      return ''.force_encoding(encoding) if frames.empty?
+      frames.inject(''.force_encoding(encoding)) do |str, frame|
+        str << frame_separator.encode(encoding) unless str.empty?
+        str << frame.encode(encoding)
       end
     end
     alias_method :to_s, :to_str
@@ -100,26 +98,35 @@ module EZMQ
     # Equality. A Message is equal to another object if it tests true
     # using either String#== when cast to a string *or* Array#== for its
     # frames (in that order).
-    def ==(val)
-      String.new(self) == val or super
+    def ==(other)
+      String.new(self) == other or super
     end
 
     # Comparison. A Message is first cast to a string and String#<=> is
-    # tested. If no value is returned, the message frames are tested using
+    # tested. If no otherue is returned, the message frames are tested using
     # Array#<=>. The standard comparison operators (`<`, '<=', '>', '>='
     # and `between?`) are implemented using Comparable.
-    def <=>(val)
-      String.new(self) <=> val or super
+    def <=>(other)
+      String.new(self) <=> other or super
     end
 
-    # Match. Equivalent to String#=~.
-    def =~(val)
-      String.new(self) =~ val
+    # Matches the complete message string against a regex. Equivalent to String#=~.
+    def =~(other)
+      String.new(self) =~ other
     end
 
-    # Equivalent to String#match.
-    def match(val)
-      String.new(self).match val
+    # Matches the complete message string against a regex. Equivalent to String#match.
+    def match(other)
+      String.new(self).match other
     end
+
+    # Total number of bytes (_not_ characters) in all message frames. Does not
+    # count frame separators. This is the actual message size sent by 0mq.
+    def size
+      frames.inject(0) do |sum, frame|
+        sum += frame.bytesize
+      end
+    end
+    alias_method :length, :size
   end
 end

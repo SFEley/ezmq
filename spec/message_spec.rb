@@ -32,6 +32,10 @@ module EZMQ
       it "can be compared against an array" do
         expect(subject <=> ['foo']).to eq 1
       end
+
+      it "counts elements like an array" do
+        expect(subject.count).to eq 2
+      end
     end
 
     describe "as a string" do
@@ -66,6 +70,21 @@ module EZMQ
 
       it "is equal against a string" do
         expect(subject).to eq 'foobar'
+      end
+
+      it "returns its size as the total string size" do
+        expect(subject.size).to eq 6
+      end
+
+      it "returns its length as the total string length" do
+        expect(subject.length).to eq 6
+      end
+
+      it "sizes by bytes, not characters" do
+        subject.encoding = Encoding::UTF_8
+        subject << "çåøß"
+        expect(subject.size).to eq 14
+        expect(subject.length).to eq 14
       end
 
       it "can be tested for equality against a string" do
