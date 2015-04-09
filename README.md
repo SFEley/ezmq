@@ -29,32 +29,21 @@ Addresses can be specified as URI strings ("tcp://192.168.100.100:9876") or you 
 
 ### Getting ZeroMQ
 
-***Important:*** You *must* have a compatible version of the **libzmq**
-library installed on your system. This gem does not come with the ZeroMQ
-source and will not execute if one cannot be found. It's widely available
-with the leading package managers:
+***Important:*** You *must* have a compatible version of the **libzmq** library installed on your system. This gem does not come with the ZeroMQ source and will not execute if one cannot be found. It's widely available with the leading package managers:
 
 * Ubuntu / Debian: `sudo apt-get install libzmq`
 * CentOS / Red Hat: `sudo yum install zeromq`
 * OS X: With [Homebrew](http://brew.sh), `brew install zeromq`
 
-The current version of **EZMQ** is developed and tested on [ZeroMQ 3.2.5](https://github.com/zeromq/zeromq3-x/) and [4.0.5](https://github.com/zeromq/zeromq4-x/).
-Compatibility on lower 3._x_ versions is not guaranteed, and trying to run
-with 2._x_ or lower will raise a runtime error.
+The current version of **EZMQ** is developed and tested on [ZeroMQ 3.2.5](https://github.com/zeromq/zeromq3-x/) and [4.0.5](https://github.com/zeromq/zeromq4-x/). Compatibility on lower 3._x_ versions is not guaranteed, and trying to run with 2._x_ or lower will raise a runtime error.
 
-Version 4-specific features such as authentication and encryption are included
-based on a version check at startup. **EZMQ** will attempt to autodetect and
-use the most recent 0mq version on your system; if you want to override this and
-specify a specific library, set the `ZMQ_LIB` environment variable to the name.
+Version 4-specific features such as authentication and encryption are included based on a version check at startup. **EZMQ** will attempt to autodetect and use the most recent 0mq version on your system; if you want to override this and specify a specific library, set the `ZMQ_LIB` environment variable to the name.
 
 ### The Gem
 
-Simply add `gem 'ezmq'` to your project's [Gemfile](http://bundler.io) or
-run `gem install ezmq` if you're not bundling for some reason.
+Simply add `gem 'ezmq'` to your project's [Gemfile](http://bundler.io) or run `gem install ezmq` if you're not bundling for some reason.
 
-**EZMQ** uses the [Ruby FFI](https://github.com/ffi/ffi) gem and thus
-should work on Ruby 1.9 and above, JRuby, and Rubinius. Please file an issue
-if you find any issues on your chosen platform.
+**EZMQ** uses the [Ruby FFI](https://github.com/ffi/ffi) gem and thus should work on Ruby 1.9 and above, JRuby, and Rubinius. Please file an issue if you find any issues on your chosen platform.
 
 ## Configuration
 
@@ -151,8 +140,7 @@ Waiting for a message to come in is the desired `receive` behavior 99% of the ti
 
 ### Polling
 
-The polling features provided by 0mq are not currently implemented by 0mq. Please let us know in the
-Github issues for this project if you'd like this feature soon.
+The polling features provided by 0mq are not currently implemented by 0mq. Please let us know in the Github issues for this project if you'd like this feature soon.
 
 ## Sockets
 
@@ -170,28 +158,88 @@ Github issues for this project if you'd like this feature soon.
 
 ## Encryption
 
-0mq 4._x_ offers optional support for encrypting traffic using elliptic curve cryptography. To enable this, one side of a connection (the "server") must generate a public/private keypair. The private key is known only to the server socket, and the public key must be supplied by client sockets as the **server key**. If the keys correspond and there are no other authentication rules, the two sockets then negotiate one-time encryption for the rest of the exchange.
+0mq 4._x_ offers optional support for encrypting traffic using [elliptic curve cryptography](http://curvezmq.org). To enable this, one side of a connection (the "server") must generate a public/private keypair. The secret key is known only to the server socket, and the public key must be supplied by client sockets as the **server key**. If the keys correspond and there are no other authentication rules, the two sockets then negotiate one-time encryption for the rest of the exchange.
+
+***NOTE:*** Like many features of 0mq, the security handshake happens behind the scenes after the connection request returns. This means that there's no explicit error if the wrong keys are given or encryption otherwise fails. The only way to know you'll know your sockets aren't talking is that messages won't be received. Good integration tests are highly recommended.
 
 ### Generating Keys
 
-The 0mq library has a function for randomly generating elliptic-curve keypairs. If clients will need to make reliable connections for a time period longer than a single application run, we strongly recommend creating a "long term" keypair in advance and managing it as you would other application secrets.  You can use the `EZMQ.keypair` convenience method to create matching public and private keys:
+The 0mq library has a function for randomly generating elliptic-curve keypairs. If clients will need to make reliable connections for a time period longer than a single application run, we strongly recommend creating a "long term" keypair in advance and managing it as you would other application secrets.  You can use the `EZMQ.keypair` convenience method to create matching public and secret keys:
 
 ```ruby
-public_key, private_key = EZMQ.keypair
+public_key, secret_key = EZMQ.keypair
+#=> ['BB88471D65E2659B30C55A5321CEBB5AAB2B70A398645C26DCA2B2FCB43FC518',
+#=>  '7BB864B489AFA3671FBE69101F94B38972F24816DFB01B51656B3FEC8DFD0888']
 ```
+
+To globally set the keys for every socket created in your application, you can do the converse: 
+
+```ruby
+EZMQ.keypair = public_key, secret_key
+
+# OR
+
+EZMQ.public_key = public_key
+EZMQ.secret_key = secret_key
+```
+
+You can also set these options on individual sockets, of course. Note that simply assigning keys will _not_ enable encryption; you'll also need to set server and client options.
 
 ### Server Side
 
-A socket can be configured to run as an encrypted 
+One half of any encrypted connection must be designated as the server. Make sure a [secret key is set](#generating-keys) for this socket, then set *server: :encrypted* or *server: :curve* (they're synonymous) to turn on security:
+
+```ruby
+socket = EZMQ::PUB.new(secret_key: '7BB864B489AFA3671FBE69101F94B38972F24816DFB01B51656B3FEC8DFD0888', 
+                       server: :encrypted )
+
+# OR
+
+socket = EZMQ::PUB.new
+socket.secret_key = '7BB864B489AFA3671FBE69101F94B38972F24816DFB01B51656B3FEC8DFD0888'
+socket.server = :encrypted
+```
+
+You must then distribute the matching _public_ key to anyone who wishes to communicate with this socket, and they'll have to set it on their client sockets. Any socket that doesn't provide the correct public key will fail to connect and messages will never go out.
 
 ### Client Side
 
+To talk to an encrypted server socket, just set the *server_key* option to that socket's public key before conecting:
+
+```ruby
+socket = EZMQ::SUB.new(server_key: 'BB88471D65E2659B30C55A5321CEBB5AAB2B70A398645C26DCA2B2FCB43FC518')
+socket.connect 'tcp://pubsocket.example.org:12345'
+
+# OR
+
+socket = EZMQ::SUB.new
+socket.server_key = 'BB88471D65E2659B30C55A5321CEBB5AAB2B70A398645C26DCA2B2FCB43FC518'
+socket.connect 'tcp://pubsocket.example.org:12345'
+```
+
+The client socket must also have valid [public and secret keys](#generating-keys), but remembering them in the long term is only useful if you intend to use them for [authentication](#authentication). If you don't set the client's keys yourself, a keypair will be automatically assigned when you set the *server_key*.
 
 ## Authentication
 
-0mq 4._x_ offers optional support for authenticating connections by IP address, with a plain text username/password, or with public/private keypairs. To secure a connection, one end of it (generally the "server" side) must run an **authentication handler.** This is a limited-purpose socket listening thread that _must_ run inside the same application process as the server socket. The handler receives credentials and connection data when a new client tries to connect, and implements rules to determine whether the connetion will be allowed to continue.  A single handler can manage authentication for any number of sockets within the same process.
+0mq 4._x_ offers optional support for verifying the identity of remote sockets by a number of means, including plain text usernames/passwords and encrypted public keys. Only one end of a socket pair can manage authentication; this socket is logically the _server_, but it doesn't matter if it connects or binds. A socket acts like a server (i.e. will attempt authentication) if either the *server* or the *domain* option is set to anything other than *nil*.
 
-**EZMQ** makes this pattern easier by providing an **EZMQ::AuthHandler** class that understands the [ZAP protocol](http://rfc.zeromq.org/spec:27) and allows any number of **rule definitions.** Standard rules are provided for filtering by a static list of usernames/passwords, client certificates, or IP ranges; or you can write your own rules if you need database lookups or other dynamic verifications.
+To perform the authentication, the owning application must run an **authentication handler** in a separate thread, which receives a message whenever a client connects to a server socket and returns a message indicating whether the connection is valid. **EZMQ** gives you three options for authentication handlers:
+
+* **Roll your own.**  It's not that hard to create your own handler. Start by reading the specs for the [ZAP protocol](http://rfc.zeromq.org/spec:27). Then just create a REP socket, bind it to `inproc://zeromq.zap.01`, and handle requests as documented. **EZMQ** won't try to launch its own handler if there's already one listening.
+* **Forward to another.** This is similar to the above, except the handler needn't run in the same process. Calling `EZMQ.auth_handler=` and assigning an endpoint string will set up a proxy that sends every authentication request to that destination. This allows many applications to use a centralized authentication service. The destination handler should be a ROUTER socket that follows the [ZAP protocol](http://rfc.zeromq.org/spec:27).
+* **Use the built-in whitelist handler.** **EZMQ** comes with a simple but flexible authentication handler that starts automatically as soon as an [authorization rule](#authorization-rules) is added at any level (global, domain, or socket). The handler lets you check the client's metadata against static values or code blocks, and should be enough for use cases of low to moderate complexity. The rest of this section describes the behavior of the built-in handler.
+
+
+### Authorization Rules
+
+0mq allows only a single authentication handler in an application, but if you have a number of sockets you may need them to follow different sets of rules. **EZMQ**'s built-in handler allows you to scope those rules at three levels:
+
+* **Global rules** apply to every server socket. You can manage global rules with `EZMQ.authorize` and `EZMQ.deauthorize`.
+* **Domain rules** allow groups of sockets to share the same authentication behavior. A named domain is created whenever you set the *domain* option on a socket, and can be accessed from the `EZMQ.domains[]` hash. To manage the rules on every socket in the "foo" domain, you would call `EZMQ.domains['foo'].authorize` and `EZMQ.domains['foo'].deauthorize`.
+* **Socket rules** are specific to a single socket and managed with the `#authorize` and `#deauthorize` methods on that socket object. The handler relies on the socket's *identity* (aka *name*) option to tell them apart. (Note: **EZMQ**'s default socket names are only guaranteed to be unique within a single application, so if you're going to forward to a distributed authentication handler, you should override these to be unique within your network.)
+
+(TODO: document the *fields* the rules can match on, and explain the whitelist-if-not-empty filter for each field. Strings, regexes and blocks are all valid in the list.)
+
 
 ## Monitoring
 
