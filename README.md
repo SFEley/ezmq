@@ -187,17 +187,17 @@ You can also set these options on individual sockets, of course. Note that simpl
 
 ### Server Side
 
-One half of any encrypted connection must be designated as the server. Make sure a [secret key is set](#generating-keys) for this socket, then set *server: :encrypted* or *server: :curve* (they're synonymous) to turn on security:
+One half of any encrypted connection must be designated as the server. Make sure a [secret key is set](#generating-keys) for this socket, and set *security: :curve* to turn on security:
 
 ```ruby
 socket = EZMQ::PUB.new(secret_key: '7BB864B489AFA3671FBE69101F94B38972F24816DFB01B51656B3FEC8DFD0888', 
-                       server: :encrypted )
+                       security: :curve )
 
 # OR
 
 socket = EZMQ::PUB.new
 socket.secret_key = '7BB864B489AFA3671FBE69101F94B38972F24816DFB01B51656B3FEC8DFD0888'
-socket.server = :encrypted
+socket.security = :curve
 ```
 
 You must then distribute the matching _public_ key to anyone who wishes to communicate with this socket, and they'll have to set it on their client sockets. Any socket that doesn't provide the correct public key will fail to connect and messages will never go out.
@@ -221,25 +221,109 @@ The client socket must also have valid [public and secret keys](#generating-keys
 
 ## Authentication
 
-0mq 4._x_ offers optional support for verifying the identity of remote sockets by a number of means, including plain text usernames/passwords and encrypted public keys. Only one end of a socket pair can manage authentication; this socket is logically the _server_, but it doesn't matter if it connects or binds. A socket acts like a server (i.e. will attempt authentication) if either the *server* or the *domain* option is set to anything other than *nil*.
+0mq 4._x_ offers optional support for verifying the identity of remote sockets by a number of means, including plain text usernames/passwords and encrypted public keys. Only one end of a socket pair can manage authentication; this socket is logically the _server_, but it doesn't matter if it connects or binds. A socket will act like a server (i.e. will require authentication) if you do either of the following:
 
-To perform the authentication, the owning application must run an **authentication handler** in a separate thread, which receives a message whenever a client connects to a server socket and returns a message indicating whether the connection is valid. **EZMQ** gives you three options for authentication handlers:
+* Set the `security` option to *:null*, *:plain*, or *:curve*.
+* Set the `domain` option to any non-*nil* value.
 
-* **Roll your own.**  It's not that hard to create your own handler. Start by reading the specs for the [ZAP protocol](http://rfc.zeromq.org/spec:27). Then just create a REP socket, bind it to `inproc://zeromq.zap.01`, and handle requests as documented. **EZMQ** won't try to launch its own handler if there's already one listening.
-* **Forward to another.** This is similar to the above, except the handler needn't run in the same process. Calling `EZMQ.auth_handler=` and assigning an endpoint string will set up a proxy that sends every authentication request to that destination. This allows many applications to use a centralized authentication service. The destination handler should be a ROUTER socket that follows the [ZAP protocol](http://rfc.zeromq.org/spec:27).
-* **Use the built-in whitelist handler.** **EZMQ** comes with a simple but flexible authentication handler that starts automatically as soon as an [authorization rule](#authorization-rules) is added at any level (global, domain, or socket). The handler lets you check the client's metadata against static values or code blocks, and should be enough for use cases of low to moderate complexity. The rest of this section describes the behavior of the built-in handler.
+To perform the authentication, the owning application must run an **authentication handler** in a separate thread, which receives a message whenever a client connects to a server socket and returns a message indicating whether the connection is valid. **EZMQ** gives you three options for handlers:
 
+* **Roll your own.**  It's not that hard to create your own handler. Start by reading the specs for the [ZAP protocol](http://rfc.zeromq.org/spec:27). Then just create a REP socket, assign it to `EZMQ.auth_handler`, and handle requests as documented. **EZMQ** won't try to launch its own handler if there's already one listening.
+* **Forward to another.** This is similar to the above, except the handler needn't run in the same process. Assigning an address string to `EZMQ.auth_handler` will set up a proxy that forwards every authentication request to that destination. This allows many applications to use a centralized authentication service. The destination handler should be a ROUTER socket that follows the [ZAP protocol](http://rfc.zeromq.org/spec:27).
+* **Use the built-in whitelist handler.** **EZMQ** comes with a simple but flexible authentication handler that starts automatically as soon as an [authentication rule](#rules) is added on any domain. The rest of this section describes its behavior.
 
-### Authorization Rules
+### The AuthHandler
 
-0mq allows only a single authentication handler in an application, but if you have a number of sockets you may need them to follow different sets of rules. **EZMQ**'s built-in handler allows you to scope those rules at three levels:
+The **EZMQ::AuthHandler** singleton object is the default authentication system if you don't specify another. It's a whitelist manager that matches a connecting socket's metadata against rules that you define. Its decision strategy is simple:
 
-* **Global rules** apply to every server socket. You can manage global rules with `EZMQ.authorize` and `EZMQ.deauthorize`.
-* **Domain rules** allow groups of sockets to share the same authentication behavior. A named domain is created whenever you set the *domain* option on a socket, and can be accessed from the `EZMQ.domains[]` hash. To manage the rules on every socket in the "foo" domain, you would call `EZMQ.domains['foo'].authorize` and `EZMQ.domains['foo'].deauthorize`.
-* **Socket rules** are specific to a single socket and managed with the `#authorize` and `#deauthorize` methods on that socket object. The handler relies on the socket's *identity* (aka *name*) option to tell them apart. (Note: **EZMQ**'s default socket names are only guaranteed to be unique within a single application, so if you're going to forward to a distributed authentication handler, you should override these to be unique within your network.)
+* If there are no authentication rules for a socket, allow everyone to connect.
+* If one or more authentication rules are enabled for a socket:
+    - Allow anyone who matches _any_ of the rules to connect.
+    - Deny everyone else.
 
-(TODO: document the *fields* the rules can match on, and explain the whitelist-if-not-empty filter for each field. Strings, regexes and blocks are all valid in the list.)
+The handler's matching implementation is simple but should be able to handle up to a few hundred rules with relative ease. It's intended to be good enough for simple to moderate use cases; if you need more complex behavior or a blacklisting strategy, you're better off rolling your own.
 
+#### Rules
+
+Adding new rules is done with an `#allow` method that is defined globally on the EZMQ module or on a specific [domain](#domains).) The parameters are the rule type followed by one or more _values_. Each value will be set up as a separate matching rule, so it's possible to create any number of rules with a single `#allow` call.
+
+You may also provide a _code block_ for the given rule type. The block will receive the client's relevant credentials as a parameter, with which you can do whatever you like. The rule matches if the block returns a truthy value. You can provide any number of blocks for each rule type; they will only be called _after_ all specific value rules have failed, and processing will stop as soon as one of them passes.
+
+While less commonly needed, a `#disallow` method is also provided to remove rules that were previously set, or to override a rule that was set at the global or domain level. Its signature is exactly the same: you'll need to give it the same string, pattern, or block object that was used to `#allow`.
+
+The provided rule types are described below. These cover everything the authentication handler knows about the client, so this list is unlikely to change unless the [ZAP protocol](http://rfc.zeromq.org/spec:27) is extended.
+
+##### :ip
+
+Matches on the IP address of the connecting client. This rule is the only one that works with any security type (NULL, PLAIN or CURVE), because the IP address is always known. 
+
+Values can be strings representing IPv4 or IPv6 addresses, strings representing IPv4 or IPv6 subnets with a prefix length in [CIDR notation](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing), or **IPAddr** objects representing any of the above. The rule will pass on an exact match or if the client's address is included in any subnet. If you provide a block, it will take as its parameter an **IPAddr** object representing the connecting client's address.
+
+```ruby
+EZMQ.allow :ip, '216.58.216.206', '2607:f8b0:4009:809::200e', IPAddr.new('10.0.1.130')  # Addresses
+EZMQ.allow :ip, '192.168.1.0/24', '2001:db8:0:160::/64', IPAddr.new('fe80::/112')       # Subnets
+
+EZMQ.allow :ip { |addr| addr.ipv6? }  # Block accepting only IPv6 originators
+```
+
+##### :user
+
+Matches on the username and password pair provided by the connecting client. This rule is applied only if the server socket is using PLAIN security (i.e. `socket.security = :plain`). The client socket must set the *username* and *password* options on their end (i.e. *ZMQ_PLAIN_USERNAME* and *ZMQ_PLAIN_PASSWORD*).
+
+**Important safety tip:** The username and password are transmitted *in the clear*, with no encryption or hashing whatsoever. This is why the security type is called PLAIN, and why it is *not* recommended to use it in production except on closed private networks.
+
+Values should be provided as a hash of `username => password` pairs. You can use strings or symbols for both. A *nil* password is acceptable and acts the same as an empty string. If you provide a block, the username and password are given to it as separate parameters.
+
+```ruby
+EZMQ.allow :user, bob: '98bfj894hhe', 'alice' => 'EATME', 'AzureDiamond' => :hunter2, guest: nil
+
+EZMQ.allow :user do |name, pw|    # Block that accepts users who are idiots
+  pw =~ /PASSWORD/i or 
+  pw.include? name
+end
+```
+
+##### :key
+
+Matches on the connecting client's public key. This rule is applied only if the server socket is using CURVE security (i.e. `socket.security = :curve`). The client socket must have the *public_key* and *secret_key* options set (i.e. *ZMQ_CURVE_PUBLICKEY* and *ZMQ_CURVE_SECRETKEY*) in addition to the *server_key* option (i.e. *ZMQ_CURVE_SERVERKEY*).
+
+Values should be one or more strings with the 40-character public key created by `EZMQ.keypair` or another library's implementation of [zmq_curve_keypair](http://api.zeromq.org/4-0:zmq-curve-keypair). The keys are kept in a **Set** for rapid matching, so the only practical limits on the number of client keys are available memory and time to load them all at startup. 
+
+If you provide a code block, it will take the client key as its single parameter. The likeliest use case for this would be to look up the key in another data store.
+
+```ruby
+EZMQ.allow :key, 'BB88471D65E2659B30C55A5321CEBB5AAB2B70A398645C26DCA2B2FCB43FC518'
+EZMQ.allow :key, *some_array_you_created_previously
+
+socket.allow :key do |pubkey|   # Block to look up the key in a shared Redis cache
+  redis.smember 'zmq:allowed_keys', pubkey
+end
+```
+
+#### Domains
+
+0mq allows only a single authentication handler in an context, but if you have a complex system with a large number of sockets you may want to give them different permissions. **EZMQ**'s built-in handler manages separate sets of rules under named _domains_. A domain is created whenever you set a new name on a socket with the `:domain` option, and can be accessed with the global bracket method:
+
+```ruby
+EZMQ['one'].allow :ip, '192.168.1.0/24'
+EZMQ['one'].allow :key, 'BB88471D65E2659B30C55A5321CEBB5AAB2B70A398645C26DCA2B2FCB43FC518'
+
+EZMQ['two'].allow :ip, '216.58.216.206'
+
+socket1.domain = 'one'      # Allows everything defined under EZMQ['one']
+socket2.domain = 'two'      # Allows everything defined under EZMQ['two']
+```
+
+Domains are completely separate from each other; if you want a rule to be global, you'll have to `#allow` it on every domain you use.
+
+Names for new domains can be any non-blank string except for the value *(default)*. The `EZMQ['(default')]` domain is the one used for any authenticated socket that does _not_ set a `:domain` option, or sets it to nil or an empty string. It is also the implicit domain that receives all rules set with the `EZMQ.allow` or `EZMQ.disallow` module methods. In other words, all of the following are exactly equivalent:
+
+```ruby
+EZMQ.allow :ip, '127.0.0.1'                # Allow from localhost when a domain isn't set
+EZMQ[nil].allow :ip, '127.0.0.1'           # same
+EZMQ[''].allow :ip, '127.0.0.1'            # same
+EZMQ['(default)'].allow :ip, '127.0.0.1'   # same
+```
 
 ## Monitoring
 
